@@ -15,6 +15,7 @@ config = ConfigParser()
 argparser = argparse.ArgumentParser(description="Search for and summarize concluded offers on Allegro")
 argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
 argparser.add_argument('--category', '-c', metavar='ID', action='append', type=int, help='The category identifier')
+argparser.add_argument('--maxresults', metavar='NUM', action='append', type=int, default=100, help='Limit the number of search results for each query (speeds up search)')
 argparser.add_argument('query', metavar='QUERY', nargs='+', help='The query string to search')
 
 args = argparser.parse_args()
@@ -72,8 +73,8 @@ for category_id in args.category:
 
         log.info("Searching for '%s' in category '%s'" % (q, category_id))
 
-        query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'], filterOptions=filter, resultScope=3)
-        log.info("Search returned %d offers" % (query_result.itemsCount))
+        query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'], filterOptions=filter, resultSize=args.maxresults, resultScope=3)
+        log.info("Search returned %d offers (result set is limited to %d)" % (query_result.itemsCount, args.maxresults))
 
         log.debug(query_result)
 

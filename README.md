@@ -33,11 +33,11 @@ $
 You can use the numeric IDs to efficiently search for items on the Allegro site:
 
 ```
-$ prodsearch.py -c 92475 forsyth clancy
+$ prodsearch.py -c 92475 forsyth clancy 
 INFO:root:Searching for 'forsyth' in category '92475'
-INFO:root:Search returned 905 offers
+INFO:root:Search returned 905 offers (result set is limited to 100)
 INFO:root:Searching for 'clancy' in category '92475'
-INFO:root:Search returned 808 offers
+INFO:root:Search returned 808 offers (result set is limited to 100)
 INFO:root:Summarizing 200 returned offers, 39 offers concluded
 +----------------------------------------------------|-----------------------------------------------------------------------------------------------------------|---------|------------|-------+
 | Auction title                                      |                                                  Category                                                 | Bidders |  Finished  | Price |
