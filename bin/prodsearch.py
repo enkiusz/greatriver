@@ -15,7 +15,7 @@ config = ConfigParser()
 argparser = argparse.ArgumentParser(description="Search for and summarize concluded offers on Allegro")
 argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
 argparser.add_argument('--category', '-c', metavar='ID', action='append', type=int, help='The category identifier')
-argparser.add_argument('query', metavar='QUERY', nargs='?', help='The query string to search')
+argparser.add_argument('query', metavar='QUERY', nargs='+', help='The query string to search')
 
 args = argparser.parse_args()
 
@@ -24,23 +24,8 @@ logging.basicConfig(level=logging.INFO)
 # logging.getLogger('suds.transport').setLevel(logging.DEBUG)
 log = logging.getLogger()
 
-config_filename = args.config
-if not os.path.isfile(config_filename):
-
-    os.makedirs(os.path.dirname(config_filename), exist_ok=True)
-    with open(config_filename, 'w') as f:
-        log.debug("Creating a new configuration file in '%s'" % (config_filename))
-
-        # Create a default config if config file doesn't exist
-        config['DEFAULT']['country_id'] = '1'
-        config['DEFAULT']['cache_location'] = os.path.join(xdg_cache_home, 'allegro-prodsearch', 'country-%d' % (int(config['DEFAULT']['country_id'])) )
-        config['DEFAULT']['wsdl'] = 'https://webapi.allegro.pl/service.php?wsdl'
-        config.write(f)
-
-else:
-    log.debug("Trying to load configuration file from '%s'" % (config_filename))
-    config.read(config_filename)
-
+log.debug("Trying to load configuration file from '%s'" % (args.config))
+config.read(args.config)
 
 client = Client(config['DEFAULT']['wsdl'])
 
@@ -63,36 +48,37 @@ def path(categories, cat_id):
 total_results = []
 for category_id in args.category:
 
-    query = args.query
-    filters_def = {
-        'closed': 'true',
-        'condition': 'used',
-        'category': category_id,
-        'search': query
-    }
+    for q in args.query:
 
-    filter = client.factory.create("ArrayOfFilteroptionstype")
+        filters_def = {
+            'closed': 'true',
+            'condition': 'used',
+            'category': category_id,
+            'search': q
+        }
 
-    for filter_id, value in filters_def.items():
-        f = client.factory.create("FilterOptionsType")
-        f.filterId = filter_id
-        f.filterValueId = client.factory.create("ArrayOfString")
-        f.filterValueId.item = value
-        filter.item.append(f)
+        filter = client.factory.create("ArrayOfFilteroptionstype")
 
-    sort_options = client.factory.create("SortOptionsType")
-    sort_options.sortType = "endingTime"
-    sort_options.sortOrder = "desc"
+        for filter_id, value in filters_def.items():
+            f = client.factory.create("FilterOptionsType")
+            f.filterId = filter_id
+            f.filterValueId = client.factory.create("ArrayOfString")
+            f.filterValueId.item = value
+            filter.item.append(f)
 
-    log.info("Searching for '%s' in category '%s'" % (query, category_id))
+        sort_options = client.factory.create("SortOptionsType")
+        sort_options.sortType = "endingTime"
+        sort_options.sortOrder = "desc"
 
-    query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'], filterOptions=filter, resultScope=3)
-    log.info("Search returned %d offers" % (query_result.itemsCount))
+        log.info("Searching for '%s' in category '%s'" % (q, category_id))
 
-    log.debug(query_result)
+        query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'], filterOptions=filter, resultScope=3)
+        log.info("Search returned %d offers" % (query_result.itemsCount))
 
-    if query_result.itemsCount > 0:
-        total_results.extend(query_result.itemsList.item)
+        log.debug(query_result)
+
+        if query_result.itemsCount > 0:
+            total_results.extend(query_result.itemsList.item)
 
 from prettytable import PrettyTable
 p = PrettyTable(["Auction title", "Category", "Bidders", "Finished", "Price"])

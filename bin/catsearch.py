@@ -14,7 +14,7 @@ config = ConfigParser()
 
 argparser = argparse.ArgumentParser(description="Search for a category")
 argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
-argparser.add_argument('query', metavar='QUERY', nargs='+', help='The query string to search')
+argparser.add_argument('query', metavar='QUERY', nargs='*', help='The query string to search')
 
 args = argparser.parse_args()
 
@@ -23,8 +23,22 @@ logging.basicConfig(level=logging.INFO)
 # logging.getLogger('suds.transport').setLevel(logging.DEBUG)
 log = logging.getLogger()
 
-log.debug("Trying to load configuration file from '%s'" % (args.config))
-config.read(args.config)
+config_filename = args.config
+if not os.path.isfile(config_filename):
+
+    os.makedirs(os.path.dirname(config_filename), exist_ok=True)
+    with open(config_filename, 'w') as f:
+        log.info("Creating a new configuration file in '%s'" % (config_filename))
+
+        # Create a default config if config file doesn't exist
+        config['DEFAULT']['country_id'] = '1'
+        config['DEFAULT']['cache_location'] = os.path.join(xdg_cache_home, 'allegro-prodsearch', 'country-%d' % (int(config['DEFAULT']['country_id'])) )
+        config['DEFAULT']['wsdl'] = 'https://webapi.allegro.pl/service.php?wsdl'
+        config.write(f)
+
+else:
+    log.debug("Trying to load configuration file from '%s'" % (config_filename))
+    config.read(config_filename)
 
 webapi_key = os.getenv('ALLEGRO_WEBAPI_KEY')
 
@@ -32,18 +46,21 @@ client = Client(config['DEFAULT']['wsdl'])
 
 categories = None
 
-# Check if we can load from cache
 cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-latest.pickle')
 
+# Check if we can load from cache
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
         categories = pickle.load(f)
 else:
     log.warn("Cache file '{}' could not be found, requesting categories tree from server".format(cache_filename))
 
-    all_status = client.service.doQueryAllSysStatus(countryId=config.country_id, webapiKey=webapi_key)
+    all_status = client.service.doQueryAllSysStatus(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key)
 
-    sys_status = list(filter(lambda status: status.countryId == config.country_id, all_status.item))[0]
+    log.debug("Server returned status information:")
+    log.debug(all_status)
+
+    sys_status = list(filter(lambda status: status.countryId == int(config['DEFAULT']['country_id']), all_status.item))[0]
     # Result fields:
     #   programVersion = "1.0"
     #   catsVersion = "1.4.64"
@@ -54,10 +71,10 @@ else:
     #   verKey = 1500555571
     cats_version = sys_status.catsVersion
 
-    cache_filename = os.path.join(cache_dir,'categories-%s.pickle' % (cats_version))
+    cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-%s.pickle' % (cats_version))
 
     # Download categories
-    categories_reply = client.service.doGetCatsData(countryId=config.country_id, webapiKey=webapi_key, localVersion=0)
+    categories_reply = client.service.doGetCatsData(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key, localVersion=0)
 
     # Convert the response to a hash indexed by the category ID
     categories = {}
@@ -69,7 +86,7 @@ else:
             } )
 
     # Create the cache dir and pickle the categories tree there
-    os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
+    os.makedirs(config['DEFAULT']['cache_location'], exist_ok=True)
     with open(cache_filename, "wb") as f:
         pickle.dump(categories, f)
         log.info("Cached categories tree version '%s' in '%s'" % (cats_version, cache_filename))
