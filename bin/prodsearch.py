@@ -9,6 +9,7 @@ import os
 import getpass
 import argparse
 import pickle
+import sys
 
 config = ConfigParser()
 
@@ -32,14 +33,28 @@ client = Client(config['DEFAULT']['wsdl'])
 
 webapi_key = os.getenv('ALLEGRO_WEBAPI_KEY')
 
+# Get version of category tree
+#
+# Reference: https://allegro.pl/webapi/documentation.php/show/id,1079#method-input
+#
+# sysvar | int | required
+# Component whose value is to be loaded (3 - category's tree structure, 4 - fields of a sale form).
+cat_tree_info = client.service.doQuerySysStatus(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key, sysvar=3)
+cat_version = cat_tree_info['info']
+
+log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_tree_info['verKey']))
+
 categories = None
 
 # Check if we can load from cache
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-latest.pickle')
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-{}.pickle'.format(cat_version))
 
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
         categories = pickle.load(f)
+else:
+    log.fatal("Category tree version '{}' is not cached in '{}', please download using catsearch".format(cat_version, config['DEFAULT']['cache_location']))
+    sys.exit(1)
 
 def path(categories, cat_id):
     if cat_id == 0:

@@ -44,16 +44,27 @@ webapi_key = os.getenv('ALLEGRO_WEBAPI_KEY')
 
 client = Client(config['DEFAULT']['wsdl'])
 
+# Get version of category tree
+#
+# Reference: https://allegro.pl/webapi/documentation.php/show/id,1079#method-input
+#
+# sysvar | int | required
+# Component whose value is to be loaded (3 - category's tree structure, 4 - fields of a sale form).
+cat_tree_info = client.service.doQuerySysStatus(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key, sysvar=3)
+cat_version = cat_tree_info['info']
+
+log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_tree_info['verKey']))
+
 categories = None
 
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-latest.pickle')
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-{}.pickle'.format(cat_version))
 
 # Check if we can load from cache
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
         categories = pickle.load(f)
 else:
-    log.warn("Cache file '{}' could not be found, requesting categories tree from server".format(cache_filename))
+    log.warn("Cache file '{}' for version '{}' could not be found, requesting categories tree from server".format(cache_filename, cat_version))
 
     all_status = client.service.doQueryAllSysStatus(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key)
 
@@ -90,11 +101,6 @@ else:
     with open(cache_filename, "wb") as f:
         pickle.dump(categories, f)
         log.info("Cached categories tree version '%s' in '%s'" % (cats_version, cache_filename))
-
-    # Symlink the latest version
-    fd = os.open(os.path.dirname(cache_filename), os.O_RDONLY)
-    os.symlink(cache_filename, "categories-latest.pickle", dir_fd=fd)
-    os.close(fd)
 
 log.info("Loaded %d categories" % len(categories.keys()))
 
