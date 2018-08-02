@@ -52,7 +52,7 @@ except FileNotFoundError:
     import requests
 
     passmark_url = config['DEFAULT']['passmark_url']
-    print("Downloading list of hard disks from PassMark URL '%s' into '{}'" % (passmark_url, config['DEFAULT']['cache_location']))
+    print("Downloading list of hard disks from PassMark URL '{}' into '{}'".format(passmark_url, config['DEFAULT']['cache_location']))
 
     bs = BeautifulSoup(requests.get(passmark_url).content, "lxml")
 
