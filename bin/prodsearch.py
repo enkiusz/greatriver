@@ -47,7 +47,7 @@ log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_
 categories = None
 
 # Check if we can load from cache
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-{}.pickle'.format(cat_version))
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))
 
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
