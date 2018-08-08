@@ -57,7 +57,7 @@ log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_
 
 categories = None
 
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-{}.pickle'.format(cat_version))
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))
 
 # Check if we can load from cache
 if os.path.isfile(cache_filename):
@@ -82,7 +82,7 @@ else:
     #   verKey = 1500555571
     cats_version = sys_status.catsVersion
 
-    cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'categories-%s.pickle' % (cats_version))
+    cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-%s.pickle' % (cats_version))
 
     # Download categories
     categories_reply = client.service.doGetCatsData(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key, localVersion=0)
@@ -97,7 +97,7 @@ else:
             } )
 
     # Create the cache dir and pickle the categories tree there
-    os.makedirs(config['DEFAULT']['cache_location'], exist_ok=True)
+    os.makedirs(os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id'])), exist_ok=True)
     with open(cache_filename, "wb") as f:
         pickle.dump(categories, f)
         log.info("Cached categories tree version '%s' in '%s'" % (cats_version, cache_filename))
