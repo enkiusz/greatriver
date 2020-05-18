@@ -90,6 +90,7 @@ The parameters sub-command prints a name, unit and example values for each param
 using the third command - "parts". For example, let's assume we need to list optocouplers which have the isolation voltage ("Napięcie izloacji") of more than 5kV:
 
 ```
+(generic) ➜  greatriver git:(master) ✗ bin/tme-search parts -c 112291 -P '"Napięcie izolacji" > "5 kV"' 
 2020-05-18T23:08:14.504531Z start                          config={'country_code': 'pl', 'language_code': 'en', 'base_url': 'https://www.tme.eu/', 'currency': 'USD', 'cmd': 'parts', 'cat_id': '112291', 'constraints': ['"Napięcie izolacji" > "5 kV"'], 'sort_field': None, 'sort_order': 'asc', 'item_limit': 20}
 2020-05-18T23:08:15.620677Z categories loaded              category_count=1579
 2020-05-18T23:08:15.620947Z fetching parameters            category_id=112291 category_name=Transoptory url=/pl/katalog/transoptory_112291/
