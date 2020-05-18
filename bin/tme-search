@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+
+import sys
+import requests
+import structlog
+import argparse
+import json
+import re
+import pint
+import random
+import math
+from requests_toolbelt import sessions
+from requests_toolbelt.utils import dump as request_dump
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+from tabulate import tabulate
+from copy import deepcopy
+from cachecontrol import CacheControl
+from cachecontrol.caches.file_cache import FileCache
+from xdg import XDG_CACHE_HOME
+import os
+import pptree
+from collections import defaultdict
+import pyparsing
+import operator
+
+ureg = pint.UnitRegistry()
+QU = ureg.Quantity
+
+structlog.configure(
+    processors=[
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.TimeStamper(fmt='iso'),
+        structlog.dev.ConsoleRenderer()
+    ],
+)
+
+log = structlog.get_logger()
+
+#
+# Parse command line arguments
+#
+
+parser = argparse.ArgumentParser(description='Parametric parts search on the Transfer-Multisort Elektronik site')
+parser.add_argument('--country', dest='country_code', metavar='CODE', choices=['pl'], default='pl',
+                    help='Select your country code')
+parser.add_argument('--lang', dest='language_code', metavar='CODE', choices=['pl', 'en'], default='en',        
+                    help='Select your language code')
+parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https://www.tme.eu/', 
+                    help='Select the base URL for accessing the TME.eu site')
+parser.add_argument('--currency', default='USD', help="The currency used for price calculation")
+
+sp = parser.add_subparsers(required=True, dest='cmd')
+
+parser_categories = sp.add_parser("categories", help="Part categories information")
+parser_categories.add_argument("-t", "--tree", dest='print_tree', action='store_true', default=False,
+                            help="Print categories as a tree")
+
+parser_params = sp.add_parser("parameters", help="Information about parameters for each category")
+parser_params.add_argument("categories", metavar="ID", nargs="+")
+parser_params.add_argument("--all-values", action='store_true', help="Print all possible values")
+
+parser_parts = sp.add_parser("parts", help="Parts information")
+parser_parts.add_argument("-c", "--category", dest='cat_id', metavar="ID", required=True, help="Category identifier")
+parser_parts.add_argument("--param", "-P", dest="constraints", nargs="+", help="Parameter constraint, use -P help for additional information")
+parser_parts.add_argument("--sort-field", '-S', help="Parameter name to use for sorting")
+parser_parts.add_argument("--sort-order", choices=['asc', 'dsc'], default='asc', help="Direction of sorting")
+parser_parts.add_argument("--limit", dest='item_limit', default=20, help="Number of items returned")
+
+args = parser.parse_args()
+
+# TODO: File or environment based configuration code can be put here
+config = args
+
+log.msg("start", config=vars(config))
+
+s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'{}/{}'.format(config.country_code, config.language_code)) )
+
+# Enable request caching
+s = CacheControl(s, cache=FileCache(os.path.join(XDG_CACHE_HOME, 'tme-search', 'web-cache')))
+
+#
+# Simple query language grammar.
+# 
+# Consider using https://github.com/matannoam/SimpleQuery for a query language
+#
+identifier = pyparsing.QuotedString('"')
+operator = (
+    pyparsing.Literal("=") |
+    pyparsing.Literal("!=") |
+    pyparsing.Literal("<") |
+    pyparsing.Literal(">")
+)
+value = pyparsing.QuotedString('"')
+match_format = identifier + operator + value
+
+#
+# TODO: This file is returned as proper javacsript, use string manipulation to extract the value of the
+# 'categories' object.
+#
+ctxt = s.get('catalogue/categories.js').text.replace('var categories = ','').replace('};','}')
+categories = json.loads(ctxt)
+log.msg('categories loaded', category_count=len(categories))
+
+if config.cmd == 'categories':
+
+    if config.print_tree: 
+
+        class NodeDict(defaultdict):
+
+            def __missing__(self, key):
+                cat = categories[key]
+                if len(cat['path']) > 0:
+                    parent_id = str(cat['path'][-2])
+                    parent = nodes[parent_id]
+                else:
+                    parent = None
+
+                cat_name = cat.get('meta', {'name': '/'})['name']
+                label = "{} {}".format(key, cat_name)
+                self[key] = pptree.Node(label, parent=parent)
+            
+        nodes = NodeDict()
+
+        # Build the tree
+        for id in categories.keys():
+            nodes[id]
+
+        pptree.print_tree(nodes['0'])
+
+    else:
+        rows=[]
+        for (cat_id, cat) in categories.items():
+            if 'meta' not in cat:
+                continue
+            print("{} {}".format(cat_id, cat['meta']['name']))
+
+class Value(object):
+
+    def __init__(self, **kwargs):
+        self.id = kwargs['id']
+        
+        # This is the raw value text
+        self.value_raw = kwargs['value_raw']
+        self.unit = kwargs.get('unit', None)
+
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit):
+        if unit is not None:
+            self._unit = ureg.parse_expression(unit)
+            self.value = ureg.parse_expression(self.value_raw)
+            
+            if self._unit.to_base_units().units != self.value.to_base_units().units:
+                raise ValueError("Units in unit spec '{}' and value '{}' do not match".format(
+                    self.unit, self.value
+                ))
+        else:
+            self._unit = unit
+            self.value = self.value_raw
+
+    def __str__(self):
+        return "id={} unit={} value={}".format(self.id, self.unit, self.value)
+
+    def __lt__(self, other):
+        if self.unit:
+            other = ureg.parse_expression(other)
+        return self.value < other
+
+    def __gt__(self, other):
+        if self.unit:
+            other = ureg.parse_expression(other)
+        return self.value > other
+
+    def __eq__(self, other):
+        if self.unit:
+            other = ureg.parse_expression(other)
+        return self.value == other
+
+    def __ne__(self, other):
+        if self.unit:
+            other = ureg.parse_expression(other)
+        return self.value != other        
+
+
+class Parameter(object):
+    def __init__(self, **kwargs):
+        self.id = kwargs['id']
+        self.name = kwargs['name']
+        self.unit = kwargs.get('unit', None)
+        self.values = kwargs.get('values', {})
+        self.constrained = kwargs.get('constrained', False)
+
+    @property
+    def all_values(self):
+        # Make a set to have unique values
+        return set(map(lambda v: v.value_raw, self.values.values()))
+
+    @property
+    def example_values(self, k=None):
+        if k is None:
+            k = min(5, math.ceil(len(self.values)/20))
+    
+        return random.sample(list(self.all_values), k=k)
+
+    def constrain(self, pred):
+        nv = filter(lambda v: pred(v), self.values.values())
+        self.values = dict(map(lambda v: (v.id, v), nv))
+        self.constrained = True
+
+    @property
+    def queryp(self):
+        value_ids = map(lambda v: v.id, self.values.values())
+        return '{}:{}'.format(self.id, ','.join(value_ids))
+
+    def __str__(self):
+        return "id={} name={} unit={} values={} (e.g. {})".format(self.id, self.name, self.unit, 
+            len(self.values), self.all_values)
+
+class ParamSpace(dict):
+    def __init__(self, **kwargs):
+        super(self.__class__, self)
+
+    def find_param(self, _name):
+        try:
+            return next(filter(lambda p: p.name == _name, self.values()))
+        except StopIteration:
+            return None
+
+    @property
+    def constrained_params(self):
+        return filter(lambda p: p.constrained, self.values())
+
+def build_param_space(category_id):
+    global log, s, categories
+
+    cat = categories[cat_id]
+    cat_name = cat['meta']['name']
+
+    log = log.bind(category_id=cat_id, category_name=cat_name)
+    cat_url = cat['meta']['url']
+
+    log.msg('fetching parameters', url=cat_url)
+
+    cat_resp = s.get(cat_url)
+    soup = BeautifulSoup(cat_resp.text, features="html.parser")
+    
+    #
+    # TODO: Get a list of fields which can be used for sorting from
+    #     <div class="products-sort__container" id="productsSort">
+    #
+
+    param_space = ParamSpace()
+
+    # Build a list of all parameters for this category
+    param_units = {}
+    for param_unit_option in soup.find('select', id='select_id_parameter').find_all('option'):
+        param_id = param_unit_option['value']
+        txt = param_unit_option.get_text()
+
+        # Chop off part counts and units
+        m = re.match('(.+)\s+\[[0-9]+\](\s+\[.+\])?', txt)
+        param_name = m.group(1)
+        param = Parameter(id=param_id, name=param_name)
+        
+        # Get the parameter unit
+        param.unit = None
+        m = re.match('.+\s+\[[0-9]+\]\s+\[(.+)\]', param_unit_option.get_text())
+        if m:
+            param.unit = m.group(1)
+
+        #print("PARAM id={} descr={} unit(m)={} unit={}".format(param_id, txt, m, param.unit))
+        #print(param)
+        #print("-----")
+        param_space[param_id] = param
+
+    log.msg('fetching values', parameter_name=param.name)
+
+    # Fetch the value space for each parameters
+    for param_div in soup.find('div', id='parameters').find_all('div', class_="parameter_"):
+        param_id = param_div.find('input', attrs={'name': 'not_hidden[]'})['value']
+        param_name = param_div.find('span', attrs={'data-parameter_id':param_id})['title']
+
+        #print("-----")
+        #print('id={} title={}'.format(param_id, param_name))
+        param = param_space[param_id]
+
+        values_div = param_div.find('div', class_='parameter_box').find('div', id='select_list_{}'.format(param_id))
+        for value_label in values_div.find_all('label'):
+            value_id = value_label.find('input', type='checkbox')['value']
+            
+            # Remove the parts count from the value text
+            value_text = re.sub('\[\d+\]$', '', value_label.get_text(strip=True)).replace(',','.')
+
+            #print("value id={} unit={} text={}".format(value_id, param.unit, value_text))
+            param.values[value_id] = Value(id=value_id, value_raw=value_text, unit=param.unit)
+
+        log.msg('values parsed', parameter_name=param.name, count=len(param.values))
+
+    return param_space
+
+if config.cmd == 'parameters':
+
+    for cat_id in config.categories:
+        param_space = build_param_space(cat_id)
+
+        rows = []
+        for (param_id, param) in param_space.items():
+            if config.all_values:
+                v = param.all_values
+                v_label = "All values"
+            else:
+                v = param.example_values
+                v_label = "Example values"
+
+            if param.unit != None:
+                unit = param.unit
+            else:
+                unit = ''
+
+            rows.append([
+                param.name,
+                unit,
+                ', '.join(v)
+            ])
+        print(tabulate(rows, headers=["Parameter", "Unit", v_label]))
+
+if config.cmd == "parts":
+
+    cat_id = config.cat_id
+    cat = categories[cat_id]
+    param_space = build_param_space(cat_id)
+
+    for pred in config.constraints:
+
+        match = match_format.parseString(pred)
+
+        # Lookup parameter
+        param_name = match[0]
+        param = param_space.find_param(param_name)
+        if param is None:
+            log.msg('unknown parameter', param_name=param_name)
+            continue
+
+        op = match[1]
+        value = match[2]
+
+        pred = None
+        if op == '=':
+            pred = lambda v: v == value
+        elif op == '!=':
+            pred = lambda v: v != value
+        elif op == '<':
+            pred = lambda v: v < value
+        elif op == '>':
+            pred = lambda v: v > value
+        else:
+            raise ValueError("Operator {} was unexpected".format(op))
+
+        param.constrain(pred)
+
+    
+    # Now that all the constraints have been applied perform the lookup
+    mapped_params = ';'.join( [ p.queryp for p in param_space.constrained_params])
+
+    log.msg('looking up parts', mapped_params=mapped_params, url=cat['meta']['url'])
+
+    lookup_params = {
+        'mapped_params': mapped_params,
+        'limit': config.item_limit,
+        'currency': config.currency
+    }
+
+    lookup_params.update({
+        's_field': '1000014',
+        's_order': config.sort_order,
+    })
+    if config.sort_field:
+        sort_field = param_space.find_param(config.sort_field)
+        lookup_params['s_field'] = sort_field.id
+
+    parts_resp = s.get(cat['meta']['url'], params=lookup_params)
+    soup = BeautifulSoup(parts_resp.text, features="html.parser")
+
+    part_rows = []
+    product_rows = soup.select('tr.product-row')
+    log.msg('parsing product rows', count=len(product_rows))
+    for row in product_rows:
+        manuf_name = row.find('a', attrs={'data-gtm-event-action': "producer_link"}).get_text(strip=True)
+        symbol = row.find('input', attrs={'name': 'symbols[]'}).get('value')
+        description = row.find('span', class_='product-row__symbol-row').find_next('div', class_='product-row__name-cell-sub-row').get_text(strip=True)
+        
+        part_rows.append([
+            manuf_name, symbol, description
+        ])
+    
+    print(tabulate(part_rows, headers=['Manufacturer', 'Symbol', 'Description']))
