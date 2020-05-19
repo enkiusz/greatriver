@@ -23,6 +23,7 @@ import pptree
 from collections import defaultdict
 import pyparsing
 import operator
+import js2py
 
 ureg = pint.UnitRegistry()
 QU = ureg.Quantity
@@ -51,7 +52,7 @@ parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https:
                     help='Select the base URL for accessing the TME.eu site')
 parser.add_argument('--currency', default='USD', help="The currency used for price calculation")
 
-sp = parser.add_subparsers(required=True, dest='cmd')
+sp = parser.add_subparsers(dest='cmd')
 
 parser_categories = sp.add_parser("categories", help="Part categories information")
 parser_categories.add_argument("-t", "--tree", dest='print_tree', action='store_true', default=False,
