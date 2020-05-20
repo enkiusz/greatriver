@@ -87,118 +87,113 @@ Ilość pinów                              4
 ```
 
 The parameters sub-command prints a name, unit and example values for each parameter. Parameter values are used to add constraints on the parts we will list
-using the third command - "parts". For example, let's assume we need to list optocouplers which have the isolation voltage ("Napięcie izloacji") of more than 5kV:
+using the third command - "parts". For example, let's assume we need to list optocouplers which have the isolation voltage ("Napięcie izolacji") of more than 5kV:
 
 ```
-(generic) ➜  greatriver git:(master) ✗ bin/tme-search parts -c 112291 -P '"Napięcie izolacji" > "5 kV"' 
-2020-05-18T23:08:14.504531Z start                          config={'country_code': 'pl', 'language_code': 'en', 'base_url': 'https://www.tme.eu/', 'currency': 'USD', 'cmd': 'parts', 'cat_id': '112291', 'constraints': ['"Napięcie izolacji" > "5 kV"'], 'sort_field': None, 'sort_order': 'asc', 'item_limit': 20}
-2020-05-18T23:08:15.620677Z categories loaded              category_count=1579
-2020-05-18T23:08:15.620947Z fetching parameters            category_id=112291 category_name=Transoptory url=/pl/katalog/transoptory_112291/
-2020-05-18T23:08:17.121963Z fetching values                category_id=112291 category_name=Transoptory parameter_name=Ilość pinów
-2020-05-18T23:08:17.148546Z values parsed                  category_id=112291 category_name=Transoptory count=13 parameter_name=Producent
-2020-05-18T23:08:17.148946Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Typ elementu półprzewodnikowego
-2020-05-18T23:08:17.149331Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Montaż
-2020-05-18T23:08:17.150641Z values parsed                  category_id=112291 category_name=Transoptory count=18 parameter_name=Rodzaj wyjścia
-2020-05-18T23:08:17.152724Z values parsed                  category_id=112291 category_name=Transoptory count=43 parameter_name=Obudowa
-2020-05-18T23:08:17.153141Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Liczba kanałów
-2020-05-18T23:08:17.170388Z values parsed                  category_id=112291 category_name=Transoptory count=28 parameter_name=Napięcie izolacji
-2020-05-18T23:08:17.177809Z values parsed                  category_id=112291 category_name=Transoptory count=185 parameter_name=CTR@If
-2020-05-18T23:08:17.218813Z values parsed                  category_id=112291 category_name=Transoptory count=87 parameter_name=Czas wyłączania
-2020-05-18T23:08:17.263475Z values parsed                  category_id=112291 category_name=Transoptory count=91 parameter_name=Czas załączania
-2020-05-18T23:08:17.275475Z values parsed                  category_id=112291 category_name=Transoptory count=27 parameter_name=Napięcie kolektor-emiter
-2020-05-18T23:08:17.281487Z values parsed                  category_id=112291 category_name=Transoptory count=12 parameter_name=Prąd wyzwalania
-2020-05-18T23:08:17.283907Z values parsed                  category_id=112291 category_name=Transoptory count=3 parameter_name=Napięcie wsteczne maks.
-2020-05-18T23:08:17.286847Z values parsed                  category_id=112291 category_name=Transoptory count=5 parameter_name=Napięcie wyjściowe
-2020-05-18T23:08:17.291586Z values parsed                  category_id=112291 category_name=Transoptory count=9 parameter_name=Prąd kolektora
-2020-05-18T23:08:17.292023Z values parsed                  category_id=112291 category_name=Transoptory count=1 parameter_name=Rodzaj opakowania
-2020-05-18T23:08:17.292513Z values parsed                  category_id=112291 category_name=Transoptory count=6 parameter_name=Opis transoptora
-2020-05-18T23:08:17.292944Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Ilość pinów
-2020-05-18T23:08:17.300431Z looking up parts               category_id=112291 category_name=Transoptory mapped_params=430:1549821,1444593,1444637,1444652,1444729,1444633,1548890,1444630,1444635,1548893 url=/pl/katalog/transoptory_112291/
-2020-05-18T23:08:18.789986Z parsing product rows           category_id=112291 category_name=Transoptory count=22
-Manufacturer                  Symbol        Description
-----------------------------  ------------  ------------------------------------------------------------------
-VISHAY                        SFH6156-1T    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27-F-SMD    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ISOCOM                        4N26XSM       Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        H11AV1XSM     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        SFH617A-2X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-4X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-2XSM  Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; SO4
-ISOCOM                        SFH617A-4-I   Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-4X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        TIL111XSM     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        CNY17-2XSM    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        CNY17F-2XSM   Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N28M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ON SEMICONDUCTOR (FAIRCHILD)  4N30M         Transoptor; THT; Kanały: 1; Wyj: układ Darlingtona; Uizol: 5,25kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N36SM        Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N38M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ON SEMICONDUCTOR (FAIRCHILD)  4N26M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ISOCOM                        4N26X         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP6
-VISHAY                        CNY17G-2      Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP6
-VISHAY                        SFH6156-1     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-(generic) ➜  greatriver git:(master) ✗ 
+(tme) ➜  greatriver git:(master) bin/tme-search parts -c 112291 -P '"Napięcie izolacji" > "5 kV"' 
+2020-05-20T22:05:50.286151Z start                          config={'country_code': 'pl', 'language_code': 'en', 'base_url': 'https://www.tme.eu/', 'currency': 'USD', 'cmd': 'parts', 'cat_id': '112291', 'constraints': ['"Napięcie izolacji" > "5 kV"'], 'sort_field': None, 'sort_order': 'asc', 'item_limit': 20}
+2020-05-20T22:05:51.467174Z categories loaded              category_count=1579
+2020-05-20T22:05:51.467342Z fetching parameters            category_id=112291 category_name=Transoptory url=/pl/katalog/transoptory_112291/
+2020-05-20T22:05:53.119858Z fetching values                category_id=112291 category_name=Transoptory parameter_name=Ilość pinów
+2020-05-20T22:05:53.148731Z values parsed                  category_id=112291 category_name=Transoptory count=13 parameter_name=Producent
+2020-05-20T22:05:53.149107Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Typ elementu półprzewodnikowego
+2020-05-20T22:05:53.149457Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Montaż
+2020-05-20T22:05:53.150394Z values parsed                  category_id=112291 category_name=Transoptory count=18 parameter_name=Rodzaj wyjścia
+2020-05-20T22:05:53.152285Z values parsed                  category_id=112291 category_name=Transoptory count=43 parameter_name=Obudowa
+2020-05-20T22:05:53.152749Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Liczba kanałów
+2020-05-20T22:05:53.170709Z values parsed                  category_id=112291 category_name=Transoptory count=28 parameter_name=Napięcie izolacji
+2020-05-20T22:05:53.178658Z values parsed                  category_id=112291 category_name=Transoptory count=185 parameter_name=CTR@If
+2020-05-20T22:05:53.221155Z values parsed                  category_id=112291 category_name=Transoptory count=87 parameter_name=Czas wyłączania
+2020-05-20T22:05:53.266127Z values parsed                  category_id=112291 category_name=Transoptory count=91 parameter_name=Czas załączania
+2020-05-20T22:05:53.279611Z values parsed                  category_id=112291 category_name=Transoptory count=27 parameter_name=Napięcie kolektor-emiter
+2020-05-20T22:05:53.285586Z values parsed                  category_id=112291 category_name=Transoptory count=12 parameter_name=Prąd wyzwalania
+2020-05-20T22:05:53.287355Z values parsed                  category_id=112291 category_name=Transoptory count=3 parameter_name=Napięcie wsteczne maks.
+2020-05-20T22:05:53.289755Z values parsed                  category_id=112291 category_name=Transoptory count=5 parameter_name=Napięcie wyjściowe
+2020-05-20T22:05:53.294230Z values parsed                  category_id=112291 category_name=Transoptory count=9 parameter_name=Prąd kolektora
+2020-05-20T22:05:53.294729Z values parsed                  category_id=112291 category_name=Transoptory count=1 parameter_name=Rodzaj opakowania
+2020-05-20T22:05:53.295693Z values parsed                  category_id=112291 category_name=Transoptory count=6 parameter_name=Opis transoptora
+2020-05-20T22:05:53.296202Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Ilość pinów
+2020-05-20T22:05:53.304103Z looking up parts               category_id=112291 category_name=Transoptory mapped_params=430:1549821,1444593,1444637,1444652,1444729,1444633,1548890,1444630,1444635,1548893 url=/pl/katalog/transoptory_112291/
+2020-05-20T22:05:54.961380Z parsing product rows           category_id=112291 category_name=Transoptory count=22
+2020-05-20T22:05:54.969329Z fetching pricing information   category_id=112291 category_name=Transoptory symbol_count=20
+Manufacturer                  Symbol        Pricing
+----------------------------  ------------  --------------------------------------------------------------------------------------------
+VISHAY                        SFH6156-1T    {'1000+': '0.1485', '3000+': '0.1336'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      {'2+': '0.16', '10+': '0.11', '50+': '0.09', '1000+': '0.08'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N27-F-SMD    {'2+': '0.1700', '10+': '0.1170', '25+': '0.1084', '100+': '0.0991', '500+': '0.0899'}
+ISOCOM                        4N26XSM       {'2+': '0.1700', '10+': '0.1290', '65+': '0.1118'}
+ISOCOM                        H11AV1XSM     {'2+': '0.1750', '10+': '0.1290', '65+': '0.1088', '260+': '0.0972', '1040+': '0.0936'}
+ISOCOM                        SFH617A-2X    {'2+': '0.18', '10+': '0.12', '50+': '0.11', '250+': '0.09'}
+ISOCOM                        SFH617A-4X    {'2+': '0.18', '10+': '0.12', '50+': '0.11', '250+': '0.09'}
+ISOCOM                        SFH617A-2XSM  {'2+': '0.1800', '10+': '0.1570', '50+': '0.1432', '250+': '0.1222'}
+ISOCOM                        SFH617A-4-I   {'1+': '0.18', '3+': '0.17', '10+': '0.15', '25+': '0.14', '100+': '0.13'}
+ISOCOM                        TIL111XSM     {'2+': '0.19', '10+': '0.17', '50+': '0.15', '250+': '0.13'}
+ISOCOM                        CNY17-2XSM    {'2+': '0.2000', '10+': '0.1570', '50+': '0.1390', '250+': '0.1222'}
+ISOCOM                        CNY17F-2XSM   {'2+': '0.2000', '10+': '0.1570', '65+': '0.1391', '260+': '0.1222'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N28M         {'2+': '0.22', '10+': '0.18', '50+': '0.16', '250+': '0.15', '1000+': '0.14'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N30M         {'2+': '0.23', '10+': '0.18', '50+': '0.16', '250+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N36SM        {'2+': '0.23', '10+': '0.15', '50+': '0.14', '250+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N38M         {'2+': '0.23', '10+': '0.18', '50+': '0.16', '250+': '0.14', '1000+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N26M         {'2+': '0.2894', '10+': '0.2524', '50+': '0.2233', '250+': '0.1816', '1000+': '0.1685'}
+ISOCOM                        4N26X         {'2+': '0.29', '10+': '0.20', '65+': '0.18', '260+': '0.15', '1040+': '0.14'}
+VISHAY                        CNY17G-2      {'2+': '0.30638', '10+': '0.20462', '50+': '0.16851', '250+': '0.14881', '1000+': '0.13787'}
+VISHAY                        SFH6156-1     {'2+': '0.30704', '10+': '0.20711', '50+': '0.18317', '250+': '0.14881'}
 ```
 
 As you can see the -P flag is used to define constraints with a pretty self-explanatory syntac. Simple comparison operations are possible: - = < > and the tool handles units thanks to the https://github.com/hgrecco/pint module. For example, instead of 5kV you can specify a value of 5000V:
 
 ```
-(generic) ➜  greatriver git:(master) ✗ bin/tme-search parts -c 112291 -P '"Napięcie izolacji" > "5000V"' 
-2020-05-18T23:10:07.498729Z start                          config={'country_code': 'pl', 'language_code': 'en', 'base_url': 'https://www.tme.eu/', 'currency': 'USD', 'cmd': 'parts', 'cat_id': '112291', 'constraints': ['"Napięcie izolacji" > "5000V"'], 'sort_field': None, 'sort_order': 'asc', 'item_limit': 20}
-2020-05-18T23:10:08.537121Z categories loaded              category_count=1579
-2020-05-18T23:10:08.537325Z fetching parameters            category_id=112291 category_name=Transoptory url=/pl/katalog/transoptory_112291/
-2020-05-18T23:10:10.163614Z fetching values                category_id=112291 category_name=Transoptory parameter_name=Ilość pinów
-2020-05-18T23:10:10.189122Z values parsed                  category_id=112291 category_name=Transoptory count=13 parameter_name=Producent
-2020-05-18T23:10:10.189558Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Typ elementu półprzewodnikowego
-2020-05-18T23:10:10.189904Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Montaż
-2020-05-18T23:10:10.190802Z values parsed                  category_id=112291 category_name=Transoptory count=18 parameter_name=Rodzaj wyjścia
-2020-05-18T23:10:10.192584Z values parsed                  category_id=112291 category_name=Transoptory count=43 parameter_name=Obudowa
-2020-05-18T23:10:10.193000Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Liczba kanałów
-2020-05-18T23:10:10.211442Z values parsed                  category_id=112291 category_name=Transoptory count=28 parameter_name=Napięcie izolacji
-2020-05-18T23:10:10.220585Z values parsed                  category_id=112291 category_name=Transoptory count=185 parameter_name=CTR@If
-2020-05-18T23:10:10.268091Z values parsed                  category_id=112291 category_name=Transoptory count=87 parameter_name=Czas wyłączania
-2020-05-18T23:10:10.317439Z values parsed                  category_id=112291 category_name=Transoptory count=91 parameter_name=Czas załączania
-2020-05-18T23:10:10.334434Z values parsed                  category_id=112291 category_name=Transoptory count=27 parameter_name=Napięcie kolektor-emiter
-2020-05-18T23:10:10.341528Z values parsed                  category_id=112291 category_name=Transoptory count=12 parameter_name=Prąd wyzwalania
-2020-05-18T23:10:10.343274Z values parsed                  category_id=112291 category_name=Transoptory count=3 parameter_name=Napięcie wsteczne maks.
-2020-05-18T23:10:10.346322Z values parsed                  category_id=112291 category_name=Transoptory count=5 parameter_name=Napięcie wyjściowe
-2020-05-18T23:10:10.353794Z values parsed                  category_id=112291 category_name=Transoptory count=9 parameter_name=Prąd kolektora
-2020-05-18T23:10:10.354345Z values parsed                  category_id=112291 category_name=Transoptory count=1 parameter_name=Rodzaj opakowania
-2020-05-18T23:10:10.355083Z values parsed                  category_id=112291 category_name=Transoptory count=6 parameter_name=Opis transoptora
-2020-05-18T23:10:10.355622Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Ilość pinów
-2020-05-18T23:10:10.365020Z looking up parts               category_id=112291 category_name=Transoptory mapped_params=430:1549821,1444593,1444637,1444652,1444729,1444633,1548890,1444630,1444635,1548893 url=/pl/katalog/transoptory_112291/
-2020-05-18T23:10:12.112667Z parsing product rows           category_id=112291 category_name=Transoptory count=22
-Manufacturer                  Symbol        Description
-----------------------------  ------------  ------------------------------------------------------------------
-VISHAY                        SFH6156-1T    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27-F-SMD    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ISOCOM                        4N26XSM       Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        H11AV1XSM     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        SFH617A-2X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-4X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-2XSM  Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; SO4
-ISOCOM                        SFH617A-4-I   Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        SFH617A-4X    Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP4
-ISOCOM                        TIL111XSM     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        CNY17-2XSM    Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ISOCOM                        CNY17F-2XSM   Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N28M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ON SEMICONDUCTOR (FAIRCHILD)  4N30M         Transoptor; THT; Kanały: 1; Wyj: układ Darlingtona; Uizol: 5,25kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N36SM        Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV
-ON SEMICONDUCTOR (FAIRCHILD)  4N38M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ON SEMICONDUCTOR (FAIRCHILD)  4N26M         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 7,5kV; DIP6
-ISOCOM                        4N26X         Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP6
-VISHAY                        CNY17G-2      Transoptor; THT; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV; DIP6
-VISHAY                        SFH6156-1     Transoptor; SMD; Kanały: 1; Wyj: tranzystorowe; Uizol: 5,3kV
-(generic) ➜  greatriver git:(master) ✗ 
+(tme) ➜  greatriver git:(master) bin/tme-search parts -c 112291 -P '"Napięcie izolacji" > "5000V"'
+2020-05-20T22:07:07.905001Z start                          config={'country_code': 'pl', 'language_code': 'en', 'base_url': 'https://www.tme.eu/', 'currency': 'USD', 'cmd': 'parts', 'cat_id': '112291', 'constraints': ['"Napięcie izolacji" > "5000V"'], 'sort_field': None, 'sort_order': 'asc', 'item_limit': 20}
+2020-05-20T22:07:09.007152Z categories loaded              category_count=1579
+2020-05-20T22:07:09.007331Z fetching parameters            category_id=112291 category_name=Transoptory url=/pl/katalog/transoptory_112291/
+2020-05-20T22:07:10.541609Z fetching values                category_id=112291 category_name=Transoptory parameter_name=Ilość pinów
+2020-05-20T22:07:10.569299Z values parsed                  category_id=112291 category_name=Transoptory count=13 parameter_name=Producent
+2020-05-20T22:07:10.569683Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Typ elementu półprzewodnikowego
+2020-05-20T22:07:10.570025Z values parsed                  category_id=112291 category_name=Transoptory count=2 parameter_name=Montaż
+2020-05-20T22:07:10.570922Z values parsed                  category_id=112291 category_name=Transoptory count=18 parameter_name=Rodzaj wyjścia
+2020-05-20T22:07:10.572796Z values parsed                  category_id=112291 category_name=Transoptory count=43 parameter_name=Obudowa
+2020-05-20T22:07:10.573215Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Liczba kanałów
+2020-05-20T22:07:10.590842Z values parsed                  category_id=112291 category_name=Transoptory count=28 parameter_name=Napięcie izolacji
+2020-05-20T22:07:10.599653Z values parsed                  category_id=112291 category_name=Transoptory count=185 parameter_name=CTR@If
+2020-05-20T22:07:10.643336Z values parsed                  category_id=112291 category_name=Transoptory count=87 parameter_name=Czas wyłączania
+2020-05-20T22:07:10.688924Z values parsed                  category_id=112291 category_name=Transoptory count=91 parameter_name=Czas załączania
+2020-05-20T22:07:10.705041Z values parsed                  category_id=112291 category_name=Transoptory count=27 parameter_name=Napięcie kolektor-emiter
+2020-05-20T22:07:10.713954Z values parsed                  category_id=112291 category_name=Transoptory count=12 parameter_name=Prąd wyzwalania
+2020-05-20T22:07:10.715814Z values parsed                  category_id=112291 category_name=Transoptory count=3 parameter_name=Napięcie wsteczne maks.
+2020-05-20T22:07:10.719067Z values parsed                  category_id=112291 category_name=Transoptory count=5 parameter_name=Napięcie wyjściowe
+2020-05-20T22:07:10.724682Z values parsed                  category_id=112291 category_name=Transoptory count=9 parameter_name=Prąd kolektora
+2020-05-20T22:07:10.725390Z values parsed                  category_id=112291 category_name=Transoptory count=1 parameter_name=Rodzaj opakowania
+2020-05-20T22:07:10.726427Z values parsed                  category_id=112291 category_name=Transoptory count=6 parameter_name=Opis transoptora
+2020-05-20T22:07:10.727140Z values parsed                  category_id=112291 category_name=Transoptory count=4 parameter_name=Ilość pinów
+2020-05-20T22:07:10.736474Z looking up parts               category_id=112291 category_name=Transoptory mapped_params=430:1549821,1444593,1444637,1444652,1444729,1444633,1548890,1444630,1444635,1548893 url=/pl/katalog/transoptory_112291/
+2020-05-20T22:07:12.625406Z parsing product rows           category_id=112291 category_name=Transoptory count=22
+2020-05-20T22:07:12.636431Z fetching pricing information   category_id=112291 category_name=Transoptory symbol_count=20
+Manufacturer                  Symbol        Pricing
+----------------------------  ------------  --------------------------------------------------------------------------------------------
+VISHAY                        SFH6156-1T    {'1000+': '0.1485', '3000+': '0.1336'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N27SR2M      {'2+': '0.16', '10+': '0.11', '50+': '0.09', '1000+': '0.08'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N27-F-SMD    {'2+': '0.1700', '10+': '0.1170', '25+': '0.1084', '100+': '0.0991', '500+': '0.0899'}
+ISOCOM                        4N26XSM       {'2+': '0.1700', '10+': '0.1290', '65+': '0.1118'}
+ISOCOM                        H11AV1XSM     {'2+': '0.1750', '10+': '0.1290', '65+': '0.1088', '260+': '0.0972', '1040+': '0.0936'}
+ISOCOM                        SFH617A-2X    {'2+': '0.18', '10+': '0.12', '50+': '0.11', '250+': '0.09'}
+ISOCOM                        SFH617A-4X    {'2+': '0.18', '10+': '0.12', '50+': '0.11', '250+': '0.09'}
+ISOCOM                        SFH617A-2XSM  {'2+': '0.1800', '10+': '0.1570', '50+': '0.1432', '250+': '0.1222'}
+ISOCOM                        SFH617A-4-I   {'1+': '0.18', '3+': '0.17', '10+': '0.15', '25+': '0.14', '100+': '0.13'}
+ISOCOM                        TIL111XSM     {'2+': '0.19', '10+': '0.17', '50+': '0.15', '250+': '0.13'}
+ISOCOM                        CNY17-2XSM    {'2+': '0.2000', '10+': '0.1570', '50+': '0.1390', '250+': '0.1222'}
+ISOCOM                        CNY17F-2XSM   {'2+': '0.2000', '10+': '0.1570', '65+': '0.1391', '260+': '0.1222'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N28M         {'2+': '0.22', '10+': '0.18', '50+': '0.16', '250+': '0.15', '1000+': '0.14'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N30M         {'2+': '0.23', '10+': '0.18', '50+': '0.16', '250+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N36SM        {'2+': '0.23', '10+': '0.15', '50+': '0.14', '250+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N38M         {'2+': '0.23', '10+': '0.18', '50+': '0.16', '250+': '0.14', '1000+': '0.13'}
+ON SEMICONDUCTOR (FAIRCHILD)  4N26M         {'2+': '0.2894', '10+': '0.2524', '50+': '0.2233', '250+': '0.1816', '1000+': '0.1685'}
+ISOCOM                        4N26X         {'2+': '0.29', '10+': '0.20', '65+': '0.18', '260+': '0.15', '1040+': '0.14'}
+VISHAY                        CNY17G-2      {'2+': '0.30638', '10+': '0.20462', '50+': '0.16851', '250+': '0.14881', '1000+': '0.13787'}
+VISHAY                        SFH6156-1     {'2+': '0.30704', '10+': '0.20711', '50+': '0.18317', '250+': '0.14881'}
 ```
 
-Unfortunately, fetching the prices is not yet implemented due to the fact that the price information is fetched as Javascript code and it's not yet clear to 
-me how to parse this in a simple way.
+The last column presents pricing information with unit prices depending on the ordered amount.
 
 ## Allegro scripts
 
