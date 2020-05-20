@@ -22,6 +22,7 @@ import os
 import pptree
 from collections import defaultdict
 import pyparsing
+import js2py
 
 ureg = pint.UnitRegistry()
 QU = ureg.Quantity
@@ -44,13 +45,13 @@ log = structlog.get_logger()
 parser = argparse.ArgumentParser(description='Parametric parts search on the Transfer-Multisort Elektronik site')
 parser.add_argument('--country', dest='country_code', metavar='CODE', choices=['pl'], default='pl',
                     help='Select your country code')
-parser.add_argument('--lang', dest='language_code', metavar='CODE', choices=['pl', 'en'], default='en',        
+parser.add_argument('--lang', dest='language_code', metavar='CODE', choices=['pl', 'en'], default='en',
                     help='Select your language code')
-parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https://www.tme.eu/', 
+parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https://www.tme.eu/',
                     help='Select the base URL for accessing the TME.eu site')
 parser.add_argument('--currency', default='USD', help="The currency used for price calculation")
 
-sp = parser.add_subparsers(required=True, dest='cmd')
+sp = parser.add_subparsers(dest='cmd')
 
 parser_categories = sp.add_parser("categories", help="Part categories information")
 parser_categories.add_argument("-t", "--tree", dest='print_tree', action='store_true', default=False,
@@ -81,7 +82,7 @@ s = CacheControl(s, cache=FileCache(os.path.join(XDG_CACHE_HOME, 'tme-search', '
 
 #
 # Simple query language grammar.
-# 
+#
 # Consider using https://github.com/matannoam/SimpleQuery for a query language
 #
 identifier = pyparsing.QuotedString('"')
@@ -104,7 +105,7 @@ log.msg('categories loaded', category_count=len(categories))
 
 if config.cmd == 'categories':
 
-    if config.print_tree: 
+    if config.print_tree:
 
         class NodeDict(defaultdict):
 
@@ -119,7 +120,7 @@ if config.cmd == 'categories':
                 cat_name = cat.get('meta', {'name': '/'})['name']
                 label = "{} {}".format(key, cat_name)
                 self[key] = pptree.Node(label, parent=parent)
-            
+
         nodes = NodeDict()
 
         # Build the tree
@@ -139,7 +140,7 @@ class Value(object):
 
     def __init__(self, **kwargs):
         self.id = kwargs['id']
-        
+
         # This is the raw value text
         self.value_raw = kwargs['value_raw']
         self.unit = kwargs.get('unit', None)
@@ -153,7 +154,7 @@ class Value(object):
         if unit is not None:
             self._unit = ureg.parse_expression(unit)
             self.value = ureg.parse_expression(self.value_raw)
-            
+
             if self._unit.to_base_units().units != self.value.to_base_units().units:
                 raise ValueError("Units in unit spec '{}' and value '{}' do not match".format(
                     self.unit, self.value
@@ -183,7 +184,7 @@ class Value(object):
     def __ne__(self, other):
         if self.unit:
             other = ureg.parse_expression(other)
-        return self.value != other        
+        return self.value != other
 
 
 class Parameter(object):
@@ -203,7 +204,7 @@ class Parameter(object):
     def example_values(self, k=None):
         if k is None:
             k = min(5, math.ceil(len(self.values)/20))
-    
+
         return random.sample(list(self.all_values), k=k)
 
     def constrain(self, pred):
@@ -247,7 +248,7 @@ def build_param_space(category_id):
 
     cat_resp = s.get(cat_url)
     soup = BeautifulSoup(cat_resp.text, features="html.parser")
-    
+
     #
     # TODO: Get a list of fields which can be used for sorting from
     #     <div class="products-sort__container" id="productsSort">
@@ -265,7 +266,7 @@ def build_param_space(category_id):
         m = re.match('(.+)\s+\[[0-9]+\](\s+\[.+\])?', txt)
         param_name = m.group(1)
         param = Parameter(id=param_id, name=param_name)
-        
+
         # Get the parameter unit
         param.unit = None
         m = re.match('.+\s+\[[0-9]+\]\s+\[(.+)\]', param_unit_option.get_text())
@@ -291,7 +292,7 @@ def build_param_space(category_id):
         values_div = param_div.find('div', class_='parameter_box').find('div', id='select_list_{}'.format(param_id))
         for value_label in values_div.find_all('label'):
             value_id = value_label.find('input', type='checkbox')['value']
-            
+
             # Remove the parts count from the value text
             value_text = re.sub('\[\d+\]$', '', value_label.get_text(strip=True)).replace(',','.')
 
@@ -362,7 +363,7 @@ if config.cmd == "parts":
 
         param.constrain(pred)
 
-    
+
     # Now that all the constraints have been applied perform the lookup
     mapped_params = ';'.join( [ p.queryp for p in param_space.constrained_params])
 
@@ -392,9 +393,9 @@ if config.cmd == "parts":
         manuf_name = row.find('a', attrs={'data-gtm-event-action': "producer_link"}).get_text(strip=True)
         symbol = row.find('input', attrs={'name': 'symbols[]'}).get('value')
         description = row.find('span', class_='product-row__symbol-row').find_next('div', class_='product-row__name-cell-sub-row').get_text(strip=True)
-        
+
         part_rows.append([
             manuf_name, symbol, description
         ])
-    
+
     print(tabulate(part_rows, headers=['Manufacturer', 'Symbol', 'Description']))
