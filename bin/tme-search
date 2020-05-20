@@ -386,16 +386,105 @@ if config.cmd == "parts":
     parts_resp = s.get(cat['meta']['url'], params=lookup_params)
     soup = BeautifulSoup(parts_resp.text, features="html.parser")
 
-    part_rows = []
+    parts_found = {}
     product_rows = soup.select('tr.product-row')
     log.msg('parsing product rows', count=len(product_rows))
     for row in product_rows:
-        manuf_name = row.find('a', attrs={'data-gtm-event-action': "producer_link"}).get_text(strip=True)
+        manuf_a = row.find('a', attrs={'data-gtm-event-action': "producer_link"})
+        manuf_name = manuf_a.get_text(strip=True)
+        data_product_id = manuf_a['data-product-id']
+
         symbol = row.find('input', attrs={'name': 'symbols[]'}).get('value')
         description = row.find('span', class_='product-row__symbol-row').find_next('div', class_='product-row__name-cell-sub-row').get_text(strip=True)
 
-        part_rows.append([
-            manuf_name, symbol, description
-        ])
+        parts_found[symbol] = dict(manuf_name=manuf_name, symbol=symbol, description=description, data_product_id=data_product_id)
 
-    print(tabulate(part_rows, headers=['Manufacturer', 'Symbol', 'Description']))
+    # Now fetch parts pricing
+    symbol_list = [ part['symbol'] for part in parts_found.values() ]
+    log.msg('fetching pricing information', symbol_count=len(symbol_list))
+    pricing_resp = s.post('/_ajax/Catalogue/_getStocks_catalogue.js', 
+        data={ 'symbols[]': symbol_list, 'onlyStocks': 0 },
+        headers={ 'X-Requested-With': 'XMLHttpRequest' }
+    )
+
+    #print("---")
+    #print("Pricing data")
+    #print(pricing_resp.text)
+
+    class Blackhole(object):
+
+        def __getattr__(self, prop):
+            return Blackhole()
+
+        def __call__(self, *args):
+            return Blackhole()
+
+
+    class HtmlCapture(object):
+        def __init__(self, snippets, key):
+            self.snippets = snippets
+            self.key = key
+
+        def __getattr__(self, prop):
+            if prop == "html":
+                return lambda html: self.snippets.update({self.key: html})
+            else:
+                return Blackhole()
+
+
+    class jQueryInterceptHtml(object):
+        def __init__(self, **kwargs):
+            self.selectors = kwargs.get('selectors', [])
+            self.snippets = kwargs['snippets']
+
+        def __call__(self, selector):
+            if selector in self.selectors:
+                return HtmlCapture(self.snippets, selector)
+            else:
+                return Blackhole()
+
+    selectors = [ "div.C_{}".format(p['data_product_id']) for p in parts_found.values() ]
+    #print("Will check for selectors {}".format(selectors))
+    snippets = {}
+
+    ctx = js2py.EvalJs({
+        '$': jQueryInterceptHtml(selectors=selectors, snippets=snippets)
+    })
+
+    ctx.execute(pricing_resp.text)
+
+    for (selector, snippet) in snippets.items():
+        # First turn the selector back into the product id to reference the found parts
+        product_id = selector.replace('div.C_','')
+        part = next( filter(lambda part: part['data_product_id'] == product_id, parts_found.values()) )
+
+        #print("SELECTOR {} found sybmol {} part {}".format(selector, symbol, part))
+
+        soup = BeautifulSoup(snippet, features="html.parser")
+
+        pricing_div = soup.find('div', class_="katalog ceny")
+        if pricing_div is None: # Skip if pricing data is not available for this part
+            part['pricing_data'] = None
+            continue
+
+        # First c-price-table entry is a header, skip it
+        pricing_div = pricing_div.find_all('div', class_="c-price-table", recursive=False)[1]
+
+        moq_levels = [ div.get_text(strip=True) for div in pricing_div.find_all('div', class_="prices_range_amount") ]
+
+        # First div is the MOQ levels that we parsed above
+        unit_prices = [ div.get_text(strip=True) for div in pricing_div.find_all('div', recursive=False)[1].find_all('div', class_='c-price-table__cell') ]
+
+        part['pricing_data'] = dict(zip(moq_levels, unit_prices))
+
+        #print("PRICING")
+        #print(pricing_div)
+        #print("MOQ {}".format(moq_levels))
+        #print("PRICES {}".format(unit_prices))
+        #print("---------")
+
+    #print("SNIPPETS")
+    #print(json.dumps(snippets, indent=4))
+
+    rows = [ [part['manuf_name'], part['symbol'], part['pricing_data']] for part in parts_found.values() ]
+    print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'Pricing']))
