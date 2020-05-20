@@ -22,7 +22,6 @@ import os
 import pptree
 from collections import defaultdict
 import pyparsing
-import operator
 
 ureg = pint.UnitRegistry()
 QU = ureg.Quantity
