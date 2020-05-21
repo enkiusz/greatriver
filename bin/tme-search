@@ -100,8 +100,11 @@ match_format = identifier + operator + value
 # TODO: This file is returned as proper javacsript, use string manipulation to extract the value of the
 # 'categories' object.
 #
-ctxt = s.get('catalogue/categories.js').text.replace('var categories = ','').replace('};','}')
-categories = json.loads(ctxt)
+cat_js = s.get('catalogue/categories.js').text
+ctx = js2py.EvalJs({})
+ctx.execute(cat_js)
+categories = ctx.categories.to_dict()
+
 log.msg('categories loaded', category_count=len(categories))
 
 if config.cmd == 'categories':
