@@ -67,6 +67,7 @@ parser_parts.add_argument("--param", "-P", dest="constraints", nargs="+", help="
 parser_parts.add_argument("--sort-field", '-S', help="Parameter name to use for sorting")
 parser_parts.add_argument("--sort-order", choices=['asc', 'dsc'], default='asc', help="Direction of sorting")
 parser_parts.add_argument("--limit", dest='item_limit', default=20, help="Number of items returned")
+parser_parts.add_argument("-A", "--amount", default=1, type=int, help="Order amount (used to calculate pricing)")
 
 args = parser.parse_args()
 
@@ -278,8 +279,6 @@ def build_param_space(category_id):
         #print("-----")
         param_space[param_id] = param
 
-    log.msg('fetching values', parameter_name=param.name)
-
     # Fetch the value space for each parameters
     for param_div in soup.find('div', id='parameters').find_all('div', class_="parameter_"):
         param_id = param_div.find('input', attrs={'name': 'not_hidden[]'})['value']
@@ -299,7 +298,7 @@ def build_param_space(category_id):
             #print("value id={} unit={} text={}".format(value_id, param.unit, value_text))
             param.values[value_id] = Value(id=value_id, value_raw=value_text, unit=param.unit)
 
-        log.msg('values parsed', parameter_name=param.name, count=len(param.values))
+        log.msg('parameter analyzed', parameter_name=param.name, value_count=len(param.values))
 
     return param_space
 
@@ -349,19 +348,20 @@ if config.cmd == "parts":
         op = match[1]
         value = match[2]
 
-        pred = None
+        pf = None
         if op == '=':
-            pred = lambda v: v == value
+            pf = lambda v: v == value
         elif op == '!=':
-            pred = lambda v: v != value
+            pf = lambda v: v != value
         elif op == '<':
-            pred = lambda v: v < value
+            pf = lambda v: v < value
         elif op == '>':
-            pred = lambda v: v > value
+            pf = lambda v: v > value
         else:
             raise ValueError("Operator {} was unexpected".format(op))
 
-        param.constrain(pred)
+        log.msg('appying parameter constraint', predicate=pred)
+        param.constrain(pf)
 
 
     # Now that all the constraints have been applied perform the lookup
@@ -388,7 +388,8 @@ if config.cmd == "parts":
 
     parts_found = {}
     product_rows = soup.select('tr.product-row')
-    log.msg('parsing product rows', count=len(product_rows))
+    log.msg('parsing part list', part_count=len(product_rows))
+
     for row in product_rows:
         manuf_a = row.find('a', attrs={'data-gtm-event-action': "producer_link"})
         manuf_name = manuf_a.get_text(strip=True)
@@ -396,12 +397,20 @@ if config.cmd == "parts":
 
         symbol = row.find('input', attrs={'name': 'symbols[]'}).get('value')
         description = row.find('span', class_='product-row__symbol-row').find_next('div', class_='product-row__name-cell-sub-row').get_text(strip=True)
+        moq = int(row.find(class_='M_{}'.format(data_product_id)).get_text(strip=True))
+        multiplier = int(row.find(class_='W_{}'.format(data_product_id)).get_text(strip=True))
 
-        parts_found[symbol] = dict(manuf_name=manuf_name, symbol=symbol, description=description, data_product_id=data_product_id)
+        parts_found[symbol] = dict(manuf_name=manuf_name, symbol=symbol, moq=moq, multiplier=multiplier,
+                description=description, selectors={
+                    'pricing': 'div.C_{}'.format(data_product_id),
+                    'stock': 'div.S_{}'.format(data_product_id)
+                })
 
-    # Now fetch parts pricing
+    # Now fetch parts stock & pricing
     symbol_list = [ part['symbol'] for part in parts_found.values() ]
-    log.msg('fetching pricing information', symbol_count=len(symbol_list))
+
+    log.msg('fetching pricing information', symbol_count=len(symbol_list), amount=config.amount)
+
     pricing_resp = s.post('/_ajax/Catalogue/_getStocks_catalogue.js', 
         data={ 'symbols[]': symbol_list, 'onlyStocks': 0 },
         headers={ 'X-Requested-With': 'XMLHttpRequest' }
@@ -443,8 +452,10 @@ if config.cmd == "parts":
             else:
                 return Blackhole()
 
-    selectors = [ "div.C_{}".format(p['data_product_id']) for p in parts_found.values() ]
-    #print("Will check for selectors {}".format(selectors))
+    selectors = []
+    selectors.extend( [ p['selectors']['stock'] for p in parts_found.values() ])
+    selectors.extend( [ p['selectors']['pricing'] for p in parts_found.values() ])
+
     snippets = {}
 
     ctx = js2py.EvalJs({
@@ -453,38 +464,66 @@ if config.cmd == "parts":
 
     ctx.execute(pricing_resp.text)
 
-    for (selector, snippet) in snippets.items():
-        # First turn the selector back into the product id to reference the found parts
-        product_id = selector.replace('div.C_','')
-        part = next( filter(lambda part: part['data_product_id'] == product_id, parts_found.values()) )
+    for part in parts_found.values():
+        selectors = part['selectors']
 
-        #print("SELECTOR {} found sybmol {} part {}".format(selector, symbol, part))
+        pricing_html = snippets.get(selectors['pricing'], None)
 
-        soup = BeautifulSoup(snippet, features="html.parser")
+        if pricing_html is not None:
+            soup = BeautifulSoup(pricing_html, features="html.parser")
 
-        pricing_div = soup.find('div', class_="katalog ceny")
-        if pricing_div is None: # Skip if pricing data is not available for this part
-            part['pricing_data'] = None
-            continue
+            pricing_div = soup.find('div', class_="katalog ceny")
+            if pricing_div is None: # Skip if pricing data is not available for this part
+                part['pricing_data'] = None
+                continue
 
-        # First c-price-table entry is a header, skip it
-        pricing_div = pricing_div.find_all('div', class_="c-price-table", recursive=False)[1]
+            # First c-price-table entry is a header, skip it
+            pricing_div = pricing_div.find_all('div', class_="c-price-table", recursive=False)[1]
 
-        moq_levels = [ div.get_text(strip=True) for div in pricing_div.find_all('div', class_="prices_range_amount") ]
+            amount_levels = [ int(div.get_text(strip=True).replace('+','')) for div in pricing_div.find_all('div', class_="prices_range_amount") ]
 
-        # First div is the MOQ levels that we parsed above
-        unit_prices = [ div.get_text(strip=True) for div in pricing_div.find_all('div', recursive=False)[1].find_all('div', class_='c-price-table__cell') ]
+            # First div is the MOQ levels that we parsed above
+            unit_prices = [ float(div.get_text(strip=True)) for div in pricing_div.find_all('div', recursive=False)[1].find_all('div', class_='c-price-table__cell') ]
 
-        part['pricing_data'] = dict(zip(moq_levels, unit_prices))
+            part['pricing'] = dict(zip(amount_levels, unit_prices))
 
-        #print("PRICING")
-        #print(pricing_div)
-        #print("MOQ {}".format(moq_levels))
-        #print("PRICES {}".format(unit_prices))
-        #print("---------")
+        else:
+            part['pricing'] = None
 
-    #print("SNIPPETS")
-    #print(json.dumps(snippets, indent=4))
+        stock_html = snippets.get(selectors['stock'], None)
 
-    rows = [ [part['manuf_name'], part['symbol'], part['pricing_data']] for part in parts_found.values() ]
-    print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'Pricing']))
+        if stock_html is not None:
+            soup = BeautifulSoup(stock_html, features="html.parser")
+            stock = int(soup.find(class_='stock_number').get_text(strip=True))
+            part['stock'] = stock
+        else:
+            part['stock'] = None
+
+        def get_unit_price(prices, amount):
+
+            amount_levels = sorted(prices.keys(), reverse=True)
+
+            try:
+                amount_level = next(filter(lambda a: amount >= a, amount_levels))
+                return prices[amount_level]
+            except StopIteration:
+                return None
+
+        # Calculate the amount that needs to be ordered taking into account the MOQ and multiplier
+        amount = min(config.amount, part['stock'])
+        part['amount'] = math.ceil(amount / part['multiplier']) * part['multiplier']
+        part['total_price'] = None
+        part['price'] = None
+
+        if amount == 0:
+            part['amount'] = "!STOCK"
+        elif amount < part['moq']:
+            part['amount'] = "!MOQ"
+        else:
+            part['price'] = get_unit_price(part['pricing'], config.amount)
+            part['total_price'] = part['amount'] * part['price']
+
+    rows = [ [part['manuf_name'], part['symbol'], part['moq'], part['multiplier'], part['stock'], 
+            part['amount'], part['price'], part['total_price']] for part in parts_found.values() ]
+    print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'MOQ', 'Mult', 'Stock', 'Order amount', 
+            'Unit price', 'Total price']))
