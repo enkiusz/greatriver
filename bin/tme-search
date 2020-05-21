@@ -43,9 +43,9 @@ log = structlog.get_logger()
 #
 
 parser = argparse.ArgumentParser(description='Parametric parts search on the Transfer-Multisort Elektronik site')
-parser.add_argument('--country', dest='country_code', metavar='CODE', choices=['pl'], default='pl',
+parser.add_argument('--country', dest='country_code', metavar='CODE', default=None,
                     help='Select your country code')
-parser.add_argument('--lang', dest='language_code', metavar='CODE', choices=['pl', 'en'], default='en',
+parser.add_argument('--lang', dest='language_code', metavar='CODE', default='en',
                     help='Select your language code')
 parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https://www.tme.eu/',
                     help='Select the base URL for accessing the TME.eu site')
@@ -76,7 +76,7 @@ config = args
 
 log.msg("start", config=vars(config))
 
-s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'{}/{}'.format(config.country_code, config.language_code)) )
+s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'/{}'.format(config.language_code)) )
 
 # Enable request caching
 s = CacheControl(s, cache=FileCache(os.path.join(XDG_CACHE_HOME, 'tme-search', 'web-cache')))
