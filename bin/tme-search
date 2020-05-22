@@ -2,7 +2,9 @@
 
 import sys
 import requests
+import logging
 import structlog
+from structlog.stdlib import LoggerFactory
 import argparse
 import json
 import re
@@ -27,14 +29,8 @@ import js2py
 ureg = pint.UnitRegistry()
 QU = ureg.Quantity
 
-structlog.configure(
-    processors=[
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.TimeStamper(fmt='iso'),
-        structlog.dev.ConsoleRenderer()
-    ],
-)
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+structlog.configure(logger_factory=LoggerFactory())
 
 log = structlog.get_logger()
 
@@ -74,7 +70,7 @@ args = parser.parse_args()
 # TODO: File or environment based configuration code can be put here
 config = args
 
-log.msg("start", config=vars(config))
+log.info("start", config=vars(config))
 
 s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'/{}'.format(config.language_code)) )
 
@@ -105,7 +101,7 @@ ctx = js2py.EvalJs({})
 ctx.execute(cat_js)
 categories = ctx.categories.to_dict()
 
-log.msg('categories loaded', category_count=len(categories))
+log.info('categories loaded', category_count=len(categories))
 
 if config.cmd == 'categories':
 
@@ -248,7 +244,7 @@ def build_param_space(category_id):
     log = log.bind(category_id=cat_id, category_name=cat_name)
     cat_url = cat['meta']['url']
 
-    log.msg('fetching parameters', url=cat_url)
+    log.info('fetching parameters', url=cat_url)
 
     cat_resp = s.get(cat_url)
     soup = BeautifulSoup(cat_resp.text, features="html.parser")
@@ -301,7 +297,7 @@ def build_param_space(category_id):
             #print("value id={} unit={} text={}".format(value_id, param.unit, value_text))
             param.values[value_id] = Value(id=value_id, value_raw=value_text, unit=param.unit)
 
-        log.msg('parameter analyzed', parameter_name=param.name, value_count=len(param.values))
+        log.info('parameter analyzed', parameter_name=param.name, value_count=len(param.values))
 
     return param_space
 
@@ -345,7 +341,7 @@ if config.cmd == "parts":
         param_name = match[0]
         param = param_space.find_param(param_name)
         if param is None:
-            log.msg('unknown parameter', param_name=param_name)
+            log.warn('unknown parameter', param_name=param_name)
             continue
 
         op = match[1]
@@ -363,14 +359,14 @@ if config.cmd == "parts":
         else:
             raise ValueError("Operator {} was unexpected".format(op))
 
-        log.msg('appying parameter constraint', predicate=pred)
+        log.info('appying parameter constraint', predicate=pred)
         param.constrain(pf)
 
 
     # Now that all the constraints have been applied perform the lookup
     mapped_params = ';'.join( [ p.queryp for p in param_space.constrained_params])
 
-    log.msg('looking up parts', mapped_params=mapped_params, url=cat['meta']['url'])
+    log.info('looking up parts', mapped_params=mapped_params, url=cat['meta']['url'])
 
     lookup_params = {
         'mapped_params': mapped_params,
@@ -391,7 +387,7 @@ if config.cmd == "parts":
 
     parts_found = {}
     product_rows = soup.select('tr.product-row')
-    log.msg('parsing part list', part_count=len(product_rows))
+    log.info('parsing part list', part_count=len(product_rows))
 
     for row in product_rows:
         manuf_a = row.find('a', attrs={'data-gtm-event-action': "producer_link"})
@@ -412,7 +408,7 @@ if config.cmd == "parts":
     # Now fetch parts stock & pricing
     symbol_list = [ part['symbol'] for part in parts_found.values() ]
 
-    log.msg('fetching pricing information', symbol_count=len(symbol_list), amount=config.amount)
+    log.info('fetching pricing information', symbol_count=len(symbol_list), amount=config.amount)
 
     pricing_resp = s.post('/_ajax/Catalogue/_getStocks_catalogue.js', 
         data={ 'symbols[]': symbol_list, 'onlyStocks': 0 },
