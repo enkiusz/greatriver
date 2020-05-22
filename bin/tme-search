@@ -43,6 +43,7 @@ parser.add_argument('--lang', dest='language_code', metavar='CODE', default='en'
 parser.add_argument('--baseurl', dest='base_url', metavar="URL", default='https://www.tme.eu/',
                     help='Select the base URL for accessing the TME.eu site')
 parser.add_argument('--currency', default='USD', help="The currency used for price calculation")
+parser.add_argument("--json", dest='json_output', action='store_true', default=False, help="Output data as JSON")
 
 sp = parser.add_subparsers(dest='cmd')
 
@@ -132,11 +133,14 @@ if config.cmd == 'categories':
         pptree.print_tree(nodes['0'])
 
     else:
-        rows=[]
-        for (cat_id, cat) in categories.items():
-            if 'meta' not in cat:
-                continue
-            print("{} {}".format(cat_id, cat['meta']['name']))
+        if config.json_output:
+            print(json.dumps(categories))
+        else:
+            rows=[]
+            for (cat_id, cat) in categories.items():
+                if 'meta' not in cat:
+                    continue
+                print("{} {}".format(cat_id, cat['meta']['name']))
 
 class Value(object):
 
@@ -524,7 +528,10 @@ if config.cmd == "parts":
             part['price'] = get_unit_price(part['pricing'], config.amount)
             part['total_price'] = part['amount'] * part['price']
 
-    rows = [ [part['manuf_name'], part['symbol'], part['moq'], part['multiplier'], part['stock'], 
-            part['amount'], part['price'], part['total_price']] for part in parts_found.values() ]
-    print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'MOQ', 'Mult', 'Stock', 'Order amount', 
-            'Unit price', 'Total price']))
+    if config.json_output:
+        print(json.dumps(parts_found))
+    else:
+        rows = [ [part['manuf_name'], part['symbol'], part['moq'], part['multiplier'], part['stock'], 
+                part['amount'], part['price'], part['total_price']] for part in parts_found.values() ]
+        print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'MOQ', 'Mult', 'Stock', 'Order amount', 
+              'Unit price', 'Total price']))
