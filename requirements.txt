@@ -1,5 +1,4 @@
 beautifulsoup4==4.9.1
-CacheControl==0.12.6
 certifi==2020.4.5.1
 chardet==3.0.4
 idna==2.9

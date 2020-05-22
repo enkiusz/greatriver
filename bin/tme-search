@@ -17,7 +17,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from tabulate import tabulate
 from copy import deepcopy
-from cachecontrol import CacheControl
 from cachecontrol.caches.file_cache import FileCache
 from xdg import XDG_CACHE_HOME
 import os
@@ -76,9 +75,6 @@ log = structlog.get_logger()
 log.info("start", config=vars(config))
 
 s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'/{}'.format(config.language_code)) )
-
-# Enable request caching
-s = CacheControl(s, cache=FileCache(os.path.join(XDG_CACHE_HOME, 'tme-search', 'web-cache')))
 
 #
 # Simple query language grammar.
