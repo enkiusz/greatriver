@@ -29,16 +29,13 @@ import js2py
 ureg = pint.UnitRegistry()
 QU = ureg.Quantity
 
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-structlog.configure(logger_factory=LoggerFactory())
-
-log = structlog.get_logger()
-
 #
 # Parse command line arguments
 #
 
 parser = argparse.ArgumentParser(description='Parametric parts search on the Transfer-Multisort Elektronik site')
+parser.add_argument('--verbose', '-v', dest='loglevel', action='store_const', const=logging.INFO, default=logging.WARN, help="Verbose information")
+parser.add_argument('--debug', '-d', dest='loglevel', action='store_const', const=logging.DEBUG, help="Debug information")
 parser.add_argument('--country', dest='country_code', metavar='CODE', default=None,
                     help='Select your country code')
 parser.add_argument('--lang', dest='language_code', metavar='CODE', default='en',
@@ -69,6 +66,11 @@ args = parser.parse_args()
 
 # TODO: File or environment based configuration code can be put here
 config = args
+
+logging.basicConfig(stream=sys.stderr, level=config.loglevel)
+structlog.configure(logger_factory=LoggerFactory())
+
+log = structlog.get_logger()
 
 log.info("start", config=vars(config))
 
