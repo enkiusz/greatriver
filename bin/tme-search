@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import requests
 import logging
 import structlog
 from structlog.stdlib import LoggerFactory
@@ -25,8 +24,10 @@ from collections import defaultdict
 import pyparsing
 import js2py
 
+from partsfinder.datamodel import *
+from partsfinder.backends.eu_tme import EuTmeSession
+
 ureg = pint.UnitRegistry()
-QU = ureg.Quantity
 
 #
 # Parse command line arguments
@@ -35,6 +36,7 @@ QU = ureg.Quantity
 parser = argparse.ArgumentParser(description='Parametric parts search on the Transfer-Multisort Elektronik site')
 parser.add_argument('--verbose', '-v', dest='loglevel', action='store_const', const=logging.INFO, default=logging.WARN, help="Verbose information")
 parser.add_argument('--debug', '-d', dest='loglevel', action='store_const', const=logging.DEBUG, help="Debug information")
+parser.add_argument("--tls-noverify", action='store_true', default=False, help="Disable TLS certificate verification (DANGEROUS!!!)")
 parser.add_argument('--country', dest='country_code', metavar='CODE', default=None,
                     help='Select your country code')
 parser.add_argument('--lang', dest='language_code', metavar='CODE', default='en',
@@ -60,7 +62,8 @@ parser_parts.add_argument("--param", "-P", dest="constraints", nargs="+", help="
 parser_parts.add_argument("--sort-field", '-S', help="Parameter name to use for sorting")
 parser_parts.add_argument("--sort-order", choices=['asc', 'dsc'], default='asc', help="Direction of sorting")
 parser_parts.add_argument("--limit", dest='item_limit', default=20, help="Number of items returned")
-parser_parts.add_argument("-A", "--amount", default=1, type=int, help="Order amount (used to calculate pricing)")
+parser_parts.add_argument("-A", "--amount", default=1, type=int, help="Order amount (used to filter based on MOQ and calculte prices)")
+parser_parts.add_argument("--all", dest='all_parts', default=False, action='store_true', help="Print all matching parts")
 
 args = parser.parse_args()
 
@@ -74,460 +77,171 @@ log = structlog.get_logger()
 
 log.info("start", config=vars(config))
 
-s = sessions.BaseUrlSession( base_url=urljoin(args.base_url,'/{}'.format(config.language_code)) )
+with EuTmeSession(lang=config.language_code) as s:
 
-#
-# Simple query language grammar.
-#
-# Consider using https://github.com/matannoam/SimpleQuery for a query language
-#
-identifier = pyparsing.QuotedString('"')
-operator = (
-    pyparsing.Literal("=") |
-    pyparsing.Literal("!=") |
-    pyparsing.Literal("<") |
-    pyparsing.Literal(">")
-)
-value = pyparsing.QuotedString('"')
-match_format = identifier + operator + value
+    if config.tls_noverify:
+        s.verify = False
 
-#
-# TODO: This file is returned as proper javacsript, use string manipulation to extract the value of the
-# 'categories' object.
-#
-cat_js = s.get('catalogue/categories.js').text
-ctx = js2py.EvalJs({})
-ctx.execute(cat_js)
-categories = ctx.categories.to_dict()
+    if config.cmd == 'categories':
 
-log.info('categories loaded', category_count=len(categories))
+        if config.print_tree:
 
-if config.cmd == 'categories':
+            class NodeDict(defaultdict):
 
-    if config.print_tree:
+                def __missing__(self, key):
+                    cat = s.categories[key]
+                    if len(cat['path']) > 0:
+                        parent_id = str(cat['path'][-2])
+                        parent = nodes[parent_id]
+                    else:
+                        parent = None
 
-        class NodeDict(defaultdict):
+                    cat_name = cat.get('meta', {'name': '/'})['name']
+                    label = "{} {}".format(key, cat_name)
+                    self[key] = pptree.Node(label, parent=parent)
 
-            def __missing__(self, key):
-                cat = categories[key]
-                if len(cat['path']) > 0:
-                    parent_id = str(cat['path'][-2])
-                    parent = nodes[parent_id]
+            nodes = NodeDict()
+
+            # Build the tree
+            for id in s.categories.keys():
+                nodes[id]
+
+            pptree.print_tree(nodes['0'])
+
+        else:
+            if config.json_output:
+                print(json.dumps(s.categories))
+            else:
+                rows=[]
+                for (cat_id, cat) in s.categories.items():
+                    if 'meta' not in cat:
+                        continue
+                    print("{} {}".format(cat_id, cat['meta']['name']))
+
+    if config.cmd == 'parameters':
+
+        v_label = None
+        for cat_id in config.categories:
+            param_space = s.build_parameter_space(s.categories[cat_id])
+
+            rows = []
+            for (param_id, param) in param_space.items():
+                if config.all_values:
+                    v = param.all_values
+                    v_label = "All values"
                 else:
-                    parent = None
-
-                cat_name = cat.get('meta', {'name': '/'})['name']
-                label = "{} {}".format(key, cat_name)
-                self[key] = pptree.Node(label, parent=parent)
-
-        nodes = NodeDict()
-
-        # Build the tree
-        for id in categories.keys():
-            nodes[id]
-
-        pptree.print_tree(nodes['0'])
-
-    else:
-        if config.json_output:
-            print(json.dumps(categories))
-        else:
-            rows=[]
-            for (cat_id, cat) in categories.items():
-                if 'meta' not in cat:
-                    continue
-                print("{} {}".format(cat_id, cat['meta']['name']))
-
-class Value(object):
-
-    def __init__(self, **kwargs):
-        self.id = kwargs['id']
-
-        # This is the raw value text
-        self.value_raw = kwargs['value_raw']
-        self.unit = kwargs.get('unit', None)
-
-    @property
-    def unit(self):
-        return self._unit
-
-    @unit.setter
-    def unit(self, unit):
-        if unit is not None:
-            self._unit = ureg.parse_expression(unit)
-            self.value = ureg.parse_expression(self.value_raw)
-
-            if self._unit.to_base_units().units != self.value.to_base_units().units:
-                raise ValueError("Units in unit spec '{}' and value '{}' do not match".format(
-                    self.unit, self.value
-                ))
-        else:
-            self._unit = unit
-            self.value = self.value_raw
-
-    def __str__(self):
-        return "id={} unit={} value={}".format(self.id, self.unit, self.value)
-
-    def __lt__(self, other):
-        if self.unit:
-            other = ureg.parse_expression(other)
-        return self.value < other
-
-    def __gt__(self, other):
-        if self.unit:
-            other = ureg.parse_expression(other)
-        return self.value > other
-
-    def __eq__(self, other):
-        if self.unit:
-            other = ureg.parse_expression(other)
-        return self.value == other
-
-    def __ne__(self, other):
-        if self.unit:
-            other = ureg.parse_expression(other)
-        return self.value != other
-
-
-class Parameter(object):
-    def __init__(self, **kwargs):
-        self.id = kwargs['id']
-        self.name = kwargs['name']
-        self.unit = kwargs.get('unit', None)
-        self.values = kwargs.get('values', {})
-        self.constrained = kwargs.get('constrained', False)
-
-    @property
-    def all_values(self):
-        # Make a set to have unique values
-        return set(map(lambda v: v.value_raw, self.values.values()))
-
-    @property
-    def example_values(self, k=None):
-        if k is None:
-            k = min(5, math.ceil(len(self.values)/20))
-
-        return random.sample(list(self.all_values), k=k)
-
-    def constrain(self, pred):
-        nv = filter(lambda v: pred(v), self.values.values())
-        self.values = dict(map(lambda v: (v.id, v), nv))
-        self.constrained = True
-
-    @property
-    def queryp(self):
-        value_ids = map(lambda v: v.id, self.values.values())
-        return '{}:{}'.format(self.id, ','.join(value_ids))
-
-    def __str__(self):
-        return "id={} name={} unit={} values={} (e.g. {})".format(self.id, self.name, self.unit, 
-            len(self.values), self.all_values)
-
-class ParamSpace(dict):
-    def __init__(self, **kwargs):
-        super(self.__class__, self)
-
-    def find_param(self, _name):
-        try:
-            return next(filter(lambda p: p.name == _name, self.values()))
-        except StopIteration:
-            return None
-
-    @property
-    def constrained_params(self):
-        return filter(lambda p: p.constrained, self.values())
-
-def build_param_space(category_id):
-    global log, s, categories
-
-    cat = categories[cat_id]
-    cat_name = cat['meta']['name']
-
-    log = log.bind(category_id=cat_id, category_name=cat_name)
-    cat_url = cat['meta']['url']
-
-    log.info('fetching parameters', url=cat_url)
-
-    cat_resp = s.get(cat_url)
-    soup = BeautifulSoup(cat_resp.text, features="html.parser")
-
-    #
-    # TODO: Get a list of fields which can be used for sorting from
-    #     <div class="products-sort__container" id="productsSort">
-    #
-
-    param_space = ParamSpace()
-
-    # Build a list of all parameters for this category
-    param_units = {}
-    for param_unit_option in soup.find('select', id='select_id_parameter').find_all('option'):
-        param_id = param_unit_option['value']
-        txt = param_unit_option.get_text()
-
-        # Chop off part counts and units
-        m = re.match('(.+)\s+\[[0-9]+\](\s+\[.+\])?', txt)
-        param_name = m.group(1)
-        param = Parameter(id=param_id, name=param_name)
-
-        # Get the parameter unit
-        param.unit = None
-        m = re.match('.+\s+\[[0-9]+\]\s+\[(.+)\]', param_unit_option.get_text())
-        if m:
-            param.unit = m.group(1)
-
-        #print("PARAM id={} descr={} unit(m)={} unit={}".format(param_id, txt, m, param.unit))
-        #print(param)
-        #print("-----")
-        param_space[param_id] = param
-
-    # Fetch the value space for each parameters
-    for param_div in soup.find('div', id='parameters').find_all('div', class_="parameter_"):
-        param_id = param_div.find('input', attrs={'name': 'not_hidden[]'})['value']
-        param_name = param_div.find('span', attrs={'data-parameter_id':param_id})['title']
-
-        #print("-----")
-        #print('id={} title={}'.format(param_id, param_name))
-        param = param_space[param_id]
-
-        values_div = param_div.find('div', class_='parameter_box').find('div', id='select_list_{}'.format(param_id))
-        for value_label in values_div.find_all('label'):
-            value_id = value_label.find('input', type='checkbox')['value']
-
-            # Remove the parts count from the value text
-            value_text = re.sub('\[\d+\]$', '', value_label.get_text(strip=True)).replace(',','.')
-
-            #print("value id={} unit={} text={}".format(value_id, param.unit, value_text))
-            param.values[value_id] = Value(id=value_id, value_raw=value_text, unit=param.unit)
-
-        log.info('parameter analyzed', parameter_name=param.name, value_count=len(param.values))
-
-    return param_space
-
-if config.cmd == 'parameters':
-
-    for cat_id in config.categories:
-        param_space = build_param_space(cat_id)
-
-        rows = []
-        for (param_id, param) in param_space.items():
-            if config.all_values:
-                v = param.all_values
-                v_label = "All values"
-            else:
-                v = param.example_values
-                v_label = "Example values"
-
-            if param.unit != None:
-                unit = param.unit
-            else:
-                unit = ''
-
-            rows.append([
-                param.name,
-                unit,
-                ', '.join(v)
-            ])
-        print(tabulate(rows, headers=["Parameter", "Unit", v_label]))
-
-if config.cmd == "parts":
-
-    cat_id = config.cat_id
-    cat = categories[cat_id]
-    param_space = build_param_space(cat_id)
-
-    for pred in config.constraints:
-
-        match = match_format.parseString(pred)
-
-        # Lookup parameter
-        param_name = match[0]
-        param = param_space.find_param(param_name)
-        if param is None:
-            log.warn('unknown parameter', param_name=param_name)
-            continue
-
-        op = match[1]
-        value = match[2]
-
-        pf = None
-        if op == '=':
-            pf = lambda v: v == value
-        elif op == '!=':
-            pf = lambda v: v != value
-        elif op == '<':
-            pf = lambda v: v < value
-        elif op == '>':
-            pf = lambda v: v > value
-        else:
-            raise ValueError("Operator {} was unexpected".format(op))
-
-        log.info('appying parameter constraint', predicate=pred)
-        param.constrain(pf)
-
-
-    # Now that all the constraints have been applied perform the lookup
-    mapped_params = ';'.join( [ p.queryp for p in param_space.constrained_params])
-
-    log.info('looking up parts', mapped_params=mapped_params, url=cat['meta']['url'])
-
-    lookup_params = {
-        'mapped_params': mapped_params,
-        'limit': config.item_limit,
-        'currency': config.currency
-    }
-
-    lookup_params.update({
-        's_field': '1000014',
-        's_order': config.sort_order,
-    })
-    if config.sort_field:
-        sort_field = param_space.find_param(config.sort_field)
-        lookup_params['s_field'] = sort_field.id
-
-    parts_resp = s.get(cat['meta']['url'], params=lookup_params)
-    soup = BeautifulSoup(parts_resp.text, features="html.parser")
-
-    parts_found = {}
-    product_rows = soup.select('tr.product-row')
-    log.info('parsing part list', part_count=len(product_rows))
-
-    for row in product_rows:
-        manuf_a = row.find('a', attrs={'data-gtm-event-action': "producer_link"})
-        manuf_name = manuf_a.get_text(strip=True)
-        data_product_id = manuf_a['data-product-id']
-
-        symbol = row.find('input', attrs={'name': 'symbols[]'}).get('value')
-        description = row.find('span', class_='product-row__symbol-row').find_next('div', class_='product-row__name-cell-sub-row').get_text(strip=True)
-        moq = int(row.find(class_='M_{}'.format(data_product_id)).get_text(strip=True))
-        multiplier = int(row.find(class_='W_{}'.format(data_product_id)).get_text(strip=True))
-
-        parts_found[symbol] = dict(manuf_name=manuf_name, symbol=symbol, moq=moq, multiplier=multiplier,
-                description=description, selectors={
-                    'pricing': 'div.C_{}'.format(data_product_id),
-                    'stock': 'div.S_{}'.format(data_product_id)
-                })
-
-    # Now fetch parts stock & pricing
-    symbol_list = [ part['symbol'] for part in parts_found.values() ]
-
-    log.info('fetching pricing information', symbol_count=len(symbol_list), amount=config.amount)
-
-    pricing_resp = s.post('/_ajax/Catalogue/_getStocks_catalogue.js', 
-        data={ 'symbols[]': symbol_list, 'onlyStocks': 0 },
-        headers={ 'X-Requested-With': 'XMLHttpRequest' }
-    )
-
-    #print("---")
-    #print("Pricing data")
-    #print(pricing_resp.text)
-
-    class Blackhole(object):
-
-        def __getattr__(self, prop):
-            return Blackhole()
-
-        def __call__(self, *args):
-            return Blackhole()
-
-
-    class HtmlCapture(object):
-        def __init__(self, snippets, key):
-            self.snippets = snippets
-            self.key = key
-
-        def __getattr__(self, prop):
-            if prop == "html":
-                return lambda html: self.snippets.update({self.key: html})
-            else:
-                return Blackhole()
-
-
-    class jQueryInterceptHtml(object):
-        def __init__(self, **kwargs):
-            self.selectors = kwargs.get('selectors', [])
-            self.snippets = kwargs['snippets']
-
-        def __call__(self, selector):
-            if selector in self.selectors:
-                return HtmlCapture(self.snippets, selector)
-            else:
-                return Blackhole()
-
-    selectors = []
-    selectors.extend( [ p['selectors']['stock'] for p in parts_found.values() ])
-    selectors.extend( [ p['selectors']['pricing'] for p in parts_found.values() ])
-
-    snippets = {}
-
-    ctx = js2py.EvalJs({
-        '$': jQueryInterceptHtml(selectors=selectors, snippets=snippets)
-    })
-
-    ctx.execute(pricing_resp.text)
-
-    for part in parts_found.values():
-        selectors = part['selectors']
-
-        pricing_html = snippets.get(selectors['pricing'], None)
-
-        if pricing_html is not None:
-            soup = BeautifulSoup(pricing_html, features="html.parser")
-
-            pricing_div = soup.find('div', class_="katalog ceny")
-            if pricing_div is None: # Skip if pricing data is not available for this part
-                part['pricing_data'] = None
+                    v = param.example_values
+                    v_label = "Example values"
+
+                if param.unit != None:
+                    unit = param.unit
+                else:
+                    unit = ''
+
+                rows.append([
+                    param.name,
+                    unit,
+                    ', '.join(v)
+                ])
+            print(tabulate(rows, headers=["Parameter", "Unit", v_label]))
+
+    if config.cmd == "parts":
+
+        #
+        # Simple query language grammar.
+        #
+        # Consider using https://github.com/matannoam/SimpleQuery for a query language
+        #
+        identifier = pyparsing.QuotedString('"')
+        operator = (
+            pyparsing.Literal("==") |
+            pyparsing.Literal("!=") |
+            pyparsing.Literal("<") |
+            pyparsing.Literal(">")
+        )
+        value = pyparsing.QuotedString('"')
+        match_format = identifier + operator + value
+
+        cat_id = config.cat_id
+        cat = s.categories[cat_id]
+        param_space = s.build_parameter_space(cat)
+
+        for pred in config.constraints:
+
+            match = match_format.parseString(pred)
+
+            # Lookup parameter
+            param_name = match[0]
+            param = param_space.find_param(param_name)
+            if param is None:
+                log.warn('unknown parameter', param_name=param_name)
                 continue
 
-            # First c-price-table entry is a header, skip it
-            pricing_div = pricing_div.find_all('div', class_="c-price-table", recursive=False)[1]
+            op = match[1]
+            value = match[2]
 
-            amount_levels = [ int(div.get_text(strip=True).replace('+','')) for div in pricing_div.find_all('div', class_="prices_range_amount") ]
+            pf = None
+            if op == '==':
+                pf = lambda v: v == value
+            elif op == '!=':
+                pf = lambda v: v != value
+            elif op == '<':
+                pf = lambda v: v < value
+            elif op == '>':
+                pf = lambda v: v > value
+            else:
+                raise ValueError("Operator {} was unexpected".format(op))
 
-            # First div is the MOQ levels that we parsed above
-            unit_prices = [ float(div.get_text(strip=True)) for div in pricing_div.find_all('div', recursive=False)[1].find_all('div', class_='c-price-table__cell') ]
+            log.info('appying parameter constraint', predicate=pred)
+            param.constrain(pf)
 
-            part['pricing'] = dict(zip(amount_levels, unit_prices))
+        parts_found = s.lookup_parts(cat, param_space)
 
+        pricing_data = s.lookup_pricing(parts_found)
+
+        for part in parts_found.values():
+            pd = pricing_data[part['symbol']]
+
+            def get_unit_price(prices, amount):
+                amount_levels = sorted(prices.keys())
+
+                try:
+                    amount_level = next(filter(lambda a: amount >= a, amount_levels))
+                    return prices[amount_level]
+                except StopIteration:
+                    return None
+
+            def format_pricing(pd):
+                return '\n'.join( map(lambda k: "{}+: {}".format(k, pd['pricing'][k]), pd['pricing'].keys()) )
+
+            # Calculate the amount that needs to be ordered taking into account the MOQ and multiplier
+            amount = min(config.amount, pd['stock'])
+            part['amount'] = math.ceil(amount / part['multiplier']) * part['multiplier']
+            part['unit_price'] = None
+            part['total_price'] = None
+
+            if amount == 0:
+                part['amount'] = "!STOCK"
+            elif amount < part['moq']:
+                part['amount'] = "!MOQ"
+            else:
+                part['unit_price'] = get_unit_price(pd['pricing'], config.amount)
+                part['total_price'] = part['amount'] * part['unit_price']
+
+        if config.json_output:
+            print(json.dumps(parts_found))
         else:
-            part['pricing'] = None
+            rows = [ [part['manuf_name'], part['symbol'], part['moq'], part['multiplier'], 
+                        pricing_data[part['symbol']]['stock'], format_pricing(pricing_data[part['symbol']]),
+                        part['amount'], str(part['total_price']) ] for part in parts_found.values() 
+                            if not part['amount'] in ('!STOCK', '!MOQ') or config.all_parts]
+            print(tabulate(rows, tablefmt='grid', headers=['Manufacturer', 'Symbol', 'MOQ', 
+                'Mult', 'Stock', 'Pricing', 'Amount', 'Total price']))
 
-        stock_html = snippets.get(selectors['stock'], None)
+            # Python is proper lisp
+            skipped_parts_count = len(list(
+                filter(lambda part: part['amount'] in ('!STOCK', '!MOQ'), parts_found.values())
+            ))
 
-        if stock_html is not None:
-            soup = BeautifulSoup(stock_html, features="html.parser")
-            stock = int(soup.find(class_='stock_number').get_text(strip=True))
-            part['stock'] = stock
-        else:
-            part['stock'] = None
-
-        def get_unit_price(prices, amount):
-
-            amount_levels = sorted(prices.keys(), reverse=True)
-
-            try:
-                amount_level = next(filter(lambda a: amount >= a, amount_levels))
-                return prices[amount_level]
-            except StopIteration:
-                return None
-
-        # Calculate the amount that needs to be ordered taking into account the MOQ and multiplier
-        amount = min(config.amount, part['stock'])
-        part['amount'] = math.ceil(amount / part['multiplier']) * part['multiplier']
-        part['total_price'] = None
-        part['price'] = None
-
-        if amount == 0:
-            part['amount'] = "!STOCK"
-        elif amount < part['moq']:
-            part['amount'] = "!MOQ"
-        else:
-            part['price'] = get_unit_price(part['pricing'], config.amount)
-            part['total_price'] = part['amount'] * part['price']
-
-    if config.json_output:
-        print(json.dumps(parts_found))
-    else:
-        rows = [ [part['manuf_name'], part['symbol'], part['moq'], part['multiplier'], part['stock'], 
-                part['amount'], part['price'], part['total_price']] for part in parts_found.values() ]
-        print(tabulate(rows, headers=['Manufacturer', 'Symbol', 'MOQ', 'Mult', 'Stock', 'Order amount', 
-              'Unit price', 'Total price']))
+            if skipped_parts_count > 0:
+                log.warn('some parts not displayed', count=skipped_parts_count)

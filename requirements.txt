@@ -19,3 +19,5 @@ tabulate==0.8.7
 tzlocal==2.1
 urllib3==1.25.9
 xdg==4.0.1
+partsfinder==0.0.4
+
