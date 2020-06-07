@@ -1,24 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import structlog
 import argparse
 import json
 import getpass
-from credstore.keepass import KeepassCredstore, AskUserCredstore
+from bankster.credstore.keepass import KeepassCredstore, AskUserCredstore
 from tabulate import tabulate
 import requests
 from bs4 import BeautifulSoup
 
 # Manual plugin import
 # KISS
-from plugins.pl_generali import PLGenerali
-from plugins.pl_nestbank import PLNestbank
-from plugins.pl_obligacjeskarbowe import PLObligacjeSkarbowe
-from plugins.pl_ideabank import PLIdeabank
-from plugins.pl_bosbank24 import PLBosbank
-from plugins.pl_starfunds import PLStarfunds
-from plugins.pl_mbank import PLMBank
+from bankster.plugins.pl_generali import PLGenerali
+from bankster.plugins.pl_nestbank import PLNestbank
+from bankster.plugins.pl_obligacjeskarbowe import PLObligacjeSkarbowe
+from bankster.plugins.pl_ideabank import PLIdeabank
+from bankster.plugins.pl_bosbank24 import PLBosbank
+from bankster.plugins.pl_starfunds import PLStarfunds
+from bankster.plugins.pl_mbank import PLMBank
 
 bank_plugins = dict(PLBosbank=PLBosbank, PLGenerali=PLGenerali, 
 PLNestbank=PLNestbank, PLObligacjeSkarbowe=PLObligacjeSkarbowe, 
