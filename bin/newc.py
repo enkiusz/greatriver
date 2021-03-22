@@ -29,7 +29,11 @@ def generate_label(id1, id2=None):
     # 800 x 300 label
     label = Image.new(mode='RGB', size=(696, 271), color=(255,255,255))
     ctx = ImageDraw.Draw(label)
-    font = ImageFont.truetype(font='Courier New', size=40)
+    try:
+        font = ImageFont.truetype(font='Courier New', size=40)
+    except:
+        font = ImageFont.truetype(font='UbuntuMono-R', size=40)
+
 
     gap = 5
     x = 50
@@ -45,7 +49,7 @@ def generate_label(id1, id2=None):
     text_width, text_height = font.getsize(id)
 
     ctx.text((label.size[0]/2,y), id, font=font, anchor='ma', fill='black')
-    y += text_height + gap
+    y += text_height + gap*2
 
     ctx.line((0, y, label.size[0], y), fill='grey')
 
@@ -96,7 +100,7 @@ def main(config, log):
     if config.g:
         config.identifiers = [ f"C~{''.join(random.choices(string.digits, k=10))}" for i in range(config.g) ]
 
-    if config.print_labels:
+    if config.print_labels and not config.printer_pretend:
         if not config.printer_id:
             available_devices = brother_ql.backends.helpers.discover(backend_identifier=config.printer_backend)
             if not available_devices:
