@@ -154,7 +154,7 @@ def store_measurement(cell_id, config, log):
                         break;
 
                     # Maintain a rolling queue of last 3 measurements
-                    measurements.pop(0)
+                    mq.pop(0)
             if result:
                 m = {
                     'action': 'measurement',
