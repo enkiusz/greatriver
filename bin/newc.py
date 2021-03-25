@@ -20,23 +20,23 @@ from brother_ql.raster import BrotherQLRaster
 
 log = get_logger()
 
-def generate_code128(txt, width=600, height=60):
+def generate_code128(txt, width=566, height=60):
     cb128 = CandyBar128('', width, height)
     code = cb128.generate_barcode_with_contents(f'{txt}')
     return code
 
 def generate_label(id1, id2=None):
-    # 800 x 300 label
-    label = Image.new(mode='RGB', size=(696, 271), color=(255,255,255))
+    # 62x29 -> 696 x  271 usable area
+    # 17x54 -> 165 x  566
+    label = Image.new(mode='RGB', size=(566, 165), color=(255,255,255))
     ctx = ImageDraw.Draw(label)
     try:
         font = ImageFont.truetype(font='Courier New', size=40)
     except:
         font = ImageFont.truetype(font='UbuntuMono-R', size=40)
 
-
     gap = 5
-    x = 50
+    x = 0
     y = 30
     
     id = id1
@@ -51,11 +51,11 @@ def generate_label(id1, id2=None):
     ctx.text((label.size[0]/2,y), id, font=font, anchor='ma', fill='black')
     y += text_height + gap*2
 
-    ctx.line((0, y, label.size[0], y), fill='grey')
-
-    y += gap*2
-
     if id2:
+        ctx.line((0, y, label.size[0], y), fill='grey')
+
+        y += gap*2
+
         id = id2
         code = generate_code128(id)
         code_img = Image.open(io.BytesIO(code))
@@ -128,11 +128,12 @@ def main(config, log):
     if config.print_labels:
 
         # 2 barcodes fit on a label
-        batches = [ config.identifiers[i:i + 2] for i in range(0, len(config.identifiers), 2) ]
-        labels = [ generate_label(b[0], b[1] if len(b)>1 else None) for b in batches ]
-        
-        log.debug('batches', batches=batches)
-        log.debug('labels', labels=labels)
+        # batches = [ config.identifiers[i:i + 2] for i in range(0, len(config.identifiers), 2) ]
+        # log.debug('batches', batches=batches)
+
+        # labels = [ generate_label(b[0], b[1] if len(b)>1 else None) for b in batches ]
+
+        labels = [ generate_label(id) for id in ids_processed ]
 
         if config.printer_pretend:
             for (i, image) in enumerate(labels):
