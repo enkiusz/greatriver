@@ -5,8 +5,9 @@ from urllib.parse import urljoin
 from tkinter import *
 from PIL import Image, ImageTk
 import io
+import os
 
-url = 'http://10.10.10.29:8080'
+url = os.getenv('IP_WEBCAM_URL')
 
 class App(object):
     def __init__(self):
