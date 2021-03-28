@@ -229,7 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('-T', '--timestamp', const=time.time(), nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause', default=False, action='store_true', help='Pause for a keypress between measurements')
     parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help="Serial port connected to the RC3563 meter")
-    parser.add_argument('identifiers', nargs='*', help='Cell identifiers, use - to read from stdin')
+    parser.add_argument('identifiers', nargs='*', default=['-']. help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)

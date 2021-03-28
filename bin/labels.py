@@ -129,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--printer-label', default=os.getenv('BROTHER_QL_LABEL'), 
         choices=brother_ql.devicedependent.label_sizes, help='Select label size for brother_ql')
     parser.add_argument('--printer-pretend', action='store_true', default=False, help='Just pretend to print labels')
-    parser.add_argument('identifiers', nargs='*', help='Cell identifiers, use - to read from stdin')
+    parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)

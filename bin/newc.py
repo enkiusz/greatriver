@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model', help='Cell model for all created cells')
     parser.add_argument('-c', '--capacity', help='Capacity in mAh for all created cells')
     parser.add_argument('-t', '--tag', dest='tags', action='append', help='Tag all created cells')
-    parser.add_argument('identifiers', nargs='*', help='Cell identifiers, use - to read from stdin')
+    parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)
