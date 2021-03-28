@@ -151,7 +151,15 @@ def store_measurement(cell_id, config, log):
                     # Check if all measurements are identical
                     if mq[0]['OCV'] == mq[1]['OCV'] == mq[2]['OCV'] and mq[0]['IR'] == mq[1]['IR'] == mq[2]['IR']:
                         result = mq[0]
-                        break;
+
+                        if result['IR'] == 'OL':
+                            # Repeat if open loop condition is detected, likely no cell has been inserted
+                            log.warn("no cell inserted", result=result)
+                            mq = []
+                            continue
+                        else:
+                            # We have a valid measurement
+                            break
 
                     # Maintain a rolling queue of last 3 measurements
                     mq.pop(0)
@@ -195,6 +203,7 @@ def store_measurement(cell_id, config, log):
     j.append(m)
 
     with open(log_filename, "w") as f:
+
         f.write(json.dumps(j, indent=2))
 
 def main(config, log):
