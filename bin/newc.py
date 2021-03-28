@@ -2,12 +2,8 @@
 
 import sys
 import argparse
-import random
-import string
 from structlog import get_logger
 from pathlib import Path
-import os
-import io
 import json
 
 
@@ -51,8 +47,6 @@ def main(config, log):
             log = log.bind(id=id)
             new_cell(id=id, config=config, log=log)
         
-    print('\n'.join(ids_processed))
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Create new cells')
