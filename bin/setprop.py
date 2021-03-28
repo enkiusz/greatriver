@@ -4,9 +4,49 @@ import sys
 import argparse
 from structlog import get_logger
 from pathlib import Path
+import os
 import io
 import json
 
+class VFS(object):
+    def __init__(self, **kwargs):
+        self._data = kwargs.get('data', {})
+
+    @property
+    def data(self):
+        return self._data
+
+    def paths(self, path='/'):
+        paths = [ path ]
+        try:
+            for d in self._find(path).keys():
+                paths.extend( self.paths( os.path.join(path, d) ))
+        except AttributeError: # Pass if we've reached a level we can't enumerate anymore
+            pass
+        return paths
+
+    def _find(self, path, mkpath=False):
+        r = self._data
+        for item in path.split('/'):
+            if not item: # Skip empty path elements
+                continue
+            if not item in r:
+                if not mkpath:
+                    return None
+                else:
+                    r[item] = {}
+
+            r = r.get(item)
+        return r
+
+    def put(self, path, data):
+        p = path.split('/')
+
+        d = self._find('/'.join(p[:-1]), mkpath=True)
+        d[ p[-1] ] = data
+
+    def get(self, path):
+        return self._find(path)
 
 log = get_logger()
 
@@ -18,20 +58,20 @@ def load_metadata(filename):
         if version_token != 'V0':
             raise RuntimeError(f"Version '{version_token}' not supported")
         
-        j = json.loads(f.read())
+        j = VFS(data=json.loads(f.read()))
         return j
 
 def save_metadata(metadata, filename):
     with open(filename, "w") as f:
-        f.write(f"V{metadata['v']}\n")
-        f.write(json.dumps(metadata, indent=2))
+        f.write(f"V{metadata.get('/v')}\n")
+        f.write(json.dumps(metadata.data, indent=2))
 
 def find_cell(cell_id):
     p = Path()
     for path in p.glob('**/meta.json'):
         try:
             metadata = load_metadata(path)
-            if metadata['id'] == cell_id:
+            if metadata.get('/id') == cell_id:
                 return (path, metadata)
         except:
             pass
@@ -47,13 +87,13 @@ def setprop(id, config, log):
         return
     
     for prop in config.properties:
-        metadata[prop[0]] = prop[1]
+        metadata.put(prop[0], prop[1])
     
     if config.tags:
-        if 'tags' not in metadata:
-            metadata['tags'] = []
-            
-        metadata['tags'].extend(config.tags)
+        if '/tags' not in metadata.paths():
+            metadata.put('/tags', [])
+
+        metadata.get('/tags').extend(config.tags)
 
     save_metadata(metadata, path)
 
@@ -76,7 +116,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Create new cells')
     parser.add_argument('-t', '--tag', dest='tags', action='append', help='Tag cells')
     parser.add_argument('-p', '--property', nargs=2, dest='properties', action='append', help='Set a property for cells')
-    parser.add_argument('identifiers', nargs='*', help='Cell identifiers, use - to read from stdin')
+    parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)
