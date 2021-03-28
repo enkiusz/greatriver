@@ -35,6 +35,21 @@ def find_cell(cell_id):
     else:
         return (None, None)
 
+def new_cell(id, log):
+    log.debug('creating cell')
+
+    cell_path = Path(id)
+    cell_path.mkdir(exist_ok=True)
+
+    metadata_path = cell_path.joinpath('meta.json')
+    metadata = dict(v=0, id=id)
+
+    with open(metadata_path, "w") as f:
+        f.write("V0\n")
+        f.write(json.dumps(metadata, indent=2))
+
+    return (metadata_path, metadata)
+
 def parse_rc3546_packet(pkt):
     status_disp, r_range_code, r_disp, sign_code, v_range_code, v_disp = struct.unpack('BB3s BB3s', pkt)
     result = {}
@@ -135,8 +150,8 @@ def store_measurement(cell_id, config, log):
 
     path, metadata = find_cell(cell_id)
     if not path:
-        log.error('cell not found')
-        return
+        log.warn('cell not found')
+        path, metadata = new_cell(id=cell_id, log=log)
 
     log.debug('cell found', path=path, metadata=metadata)
 
@@ -229,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument('-T', '--timestamp', const=time.time(), nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause', default=False, action='store_true', help='Pause for a keypress between measurements')
     parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help="Serial port connected to the RC3563 meter")
-    parser.add_argument('identifiers', nargs='*', default=['-']. help='Cell identifiers, read from stdin by default')
+    parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)
