@@ -69,8 +69,9 @@ class App(object):
 
     def publish(self, event):
         for (i, img) in enumerate(self.images):
-            with open(f"img_{i}.jpg", "wb") as f:
-                f.write(img)
+            while Path(f"img_{i}.jpg").exists():
+                i += 1
+            Path(f"img_{i}.jpg").write_bytes(img)
 
 if __name__ == "__main__":
     App()
