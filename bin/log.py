@@ -186,12 +186,18 @@ def store_measurement(cell_id, config, log):
                     'results': result
                 }
     elif config.measure == 'capa':
-        capa = input('Capacity [mAh] > ')
-        ir = input('IR [mOhm] > ')
+        capa = float(input('Capacity [mAh] > '))
+        ir = float(input('IR [mOhm] > '))
         m = {
             'action': 'measurement',
             'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
-            'setup': dict(mode='NOR TEST', current='500 mA'),
+            #
+            # Current settings from the manual: https://www.kupifonar.kz/upload/manuals/liitokala/liito-kala-lii-500-en.pdf
+            #
+            # When  you  choose  the  charging  current (300mah,500mah),  the  system  recognizes  the  discharging current is the 250mah automatically.
+            # When you  choose  the  charging  current (700mah,1000mah),  the  system  recognize  the  discharging current is the 500mah automatically.
+            #
+            'setup': dict(mode_setting='NOR TEST', current_setting='500 mA', charge_current='500 mA', discharge_current='250 mA'),
             'results': {
                 'capacity': dict(u='mAh', v=capa),
                 'IR': dict(u='mOhm', v=ir)
