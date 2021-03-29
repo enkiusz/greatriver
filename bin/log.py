@@ -10,6 +10,7 @@ import json
 import time
 import serial
 import struct
+import parsedatetime
 
 log = get_logger()
 
@@ -201,7 +202,7 @@ def store_measurement(cell_id, config, log):
         return
 
     if config.timestamp:
-        m['ts'] = time.time()
+        m['ts'] = config.timestamp
 
     log.debug('measurement data', data=m)
 
@@ -241,13 +242,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('-m', '--measure', required=True, choices=['rc', 'capa'], help='Measurement mode')
-    parser.add_argument('-T', '--timestamp', const=time.time(), nargs='?', help='Timestamp the log entry')
+    parser.add_argument('-T', '--timestamp', const='now', nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause', default=False, action='store_true', help='Pause for a keypress between measurements')
     parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help="Serial port connected to the RC3563 meter")
     parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
 
     args = parser.parse_args()
     log.debug('config', args=args)
+
+    if args.timestamp:
+        # Parse the timestamp argument
+        cal = parsedatetime.Calendar()
+        time_parsed, context = cal.parse(args.timestamp, version=parsedatetime.VERSION_CONTEXT_STYLE)
+        log.debug('parsed timestamp', argument=args.timestamp, time_parsed=time_parsed, context=context)
+
+        if not context.hasDate and context != parsedatetime.pdtContext(accuracy=parsedatetime.pdtContext.ACU_NOW):
+            log.fatal('no date in timestamp', parsed=time_parsed, pdt_context=context)
+            sys.exit(1)
+
+        args.timestamp = time.mktime(time_parsed)
 
     main(config=args, log=log)
 
