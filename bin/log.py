@@ -234,7 +234,10 @@ def main(config, log):
 
         if id == '-':
             for line in sys.stdin:
-                line = line.rstrip()
+                line = line.strip()
+                if len(line) == 0:
+                    continue
+
                 log = log.bind(id=line)
                 store_measurement(cell_id=line, config=config, log=log)
         else:

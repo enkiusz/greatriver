@@ -39,7 +39,9 @@ def main(config, log):
 
         if id == '-':
             for line in sys.stdin:
-                line = line.rstrip()
+                line = line.strip()
+                if len(line) == 0:
+                    continue
 
                 log = log.bind(id=line)
                 new_cell(id=line, config=config, log=log)

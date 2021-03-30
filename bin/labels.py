@@ -89,18 +89,12 @@ def main(config, log):
 
         if id == '-':
             for line in sys.stdin:
-                line = line.rstrip()
+                line = line.strip()
                 if len(line) == 0:
                     continue
                 ids_processed.append(line)
         else:
             ids_processed.append(id)
-        
-    # 2 barcodes fit on a label
-    # batches = [ config.identifiers[i:i + 2] for i in range(0, len(config.identifiers), 2) ]
-    # log.debug('batches', batches=batches)
-
-    # labels = [ generate_label(b[0], b[1] if len(b)>1 else None) for b in batches ]
 
     labels = [ generate_label(id) for id in ids_processed ]
 
