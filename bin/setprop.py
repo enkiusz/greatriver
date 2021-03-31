@@ -54,7 +54,6 @@ def load_metadata(filename):
     with open(filename) as f:
 
         version_token = f.readline().rstrip()
-        log.debug('loading metadata', filename=filename, version=version_token)
         if version_token != 'V0':
             raise RuntimeError(f"Version '{version_token}' not supported")
         
