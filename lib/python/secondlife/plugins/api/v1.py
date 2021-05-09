@@ -5,8 +5,16 @@ class Measurement(object):
         self.codeword = codeword
         self.handler_class = handler_class
 
+class Report(object):
+    def __init__(self, codeword, handler_class, **kwargs):
+        self.codeword = codeword
+        self.handler_class = handler_class
+
 measurements = dict()
+reports = dict()
 
 def register_measurement(measurement):
     measurements[measurement.codeword] = measurement
 
+def register_report(report):
+    reports[report.codeword] = report
