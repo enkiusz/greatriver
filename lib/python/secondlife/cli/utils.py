@@ -20,7 +20,7 @@ def cell_identifiers(config):
 
                     yield line
             else:
-                yield line
+                yield id
 
 def include_cell(path, metadata, config):
     # Check if cell is to be included based on configured criteria
