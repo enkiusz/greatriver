@@ -56,7 +56,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Restrict log message to be above selected level
-    structlog.configure( wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)) )
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
+    )
 
     log.debug('config', args=args)
 
