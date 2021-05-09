@@ -39,5 +39,5 @@ class VFS(object):
         d = self._find('/'.join(p[:-1]), mkpath=True)
         d[ p[-1] ] = data
 
-    def get(self, path):
-        return self._find(path)
+    def get(self, path, default=None):
+        return self._find(path) or default
