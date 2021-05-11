@@ -43,7 +43,7 @@ def main(config):
 
     for (path, metadata) in selected_cells(config=config):
         for report in reports:
-            report.process_cell(path=path, metadata=metadata)
+            report.process_cell(path=path)
 
     for report in reports:
         report.report()

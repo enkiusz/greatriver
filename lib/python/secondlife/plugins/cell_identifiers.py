@@ -11,8 +11,8 @@ class CellIdentifiers(object):
         self.ids = []
 
     def process_cell(self, path, metadata):
-        self.log = self.log.bind(path=path, metadata=metadata)
-        self.log.debug('processing cell')
+        log = self.log.bind(path=path)
+        log.debug('processing cell')
 
         self.ids.append(metadata.get('/id'))
 

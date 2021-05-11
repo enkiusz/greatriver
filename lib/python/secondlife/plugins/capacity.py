@@ -31,7 +31,7 @@ class CapacityReport(object):
         self.rows = []
 
     def process_cell(self, path, metadata):
-        log = self.log.bind(path=path, metadata=metadata)
+        log = self.log.bind(path=path)
         log.debug('processing cell')
 
         try:
