@@ -8,7 +8,6 @@ libdir = currentdir.parent.joinpath('lib/python')
 sys.path.append(str(libdir))
 
 import argparse
-from structlog import get_logger
 from pathlib import Path
 import io
 import os
@@ -16,32 +15,28 @@ import json
 import time
 import serial
 import struct
+import logging
+import structlog
 
 from secondlife.celldb import find_cell, load_metadata, new_cell
-
-log = get_logger()
-
 from secondlife.celldb import new_cell, store_measurement, change_properties
 from secondlife.plugins.api import v1, load_plugins
-from secondlife.cli.utils import cell_identifiers, measurement_ts
+from secondlife.cli.utils import selected_cells, measurement_ts, AddSet, CompileJQ
 
+# Reference: https://stackoverflow.com/a/49724281
+LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
+                   sorted(getattr(logging, '_levelToName', None)
+                          or logging._levelNames)
+                   if getattr(v, "real", 0)]
+
+log = structlog.get_logger()
 
 def main(config):
-    global log
 
-    for id in cell_identifiers(config):
-
-        log = log.bind(id=id)
-
+    for (path, metadata) in selected_cells(config=config):
+        id = metadata.get('/id')
         if config.pause_before_cell:
             input(f"Press Enter to begin handling cell '{id}' >")
-        
-        # Find cell
-        path, metadata = find_cell(id)
-        if not path:
-            path, metadata = new_cell(id=id)
-
-        log.debug('cell found', path=path)
 
         # Adjust properties
         change_properties(path=path, metadata=metadata, config=config)
@@ -63,17 +58,22 @@ if __name__ == '__main__':
 
     # First add common arguments    
     parser = argparse.ArgumentParser(description='Log an action')
+    parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
     parser.add_argument('-T', '--timestamp', const='now', nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause-before-cell', default=False, action='store_true', help='Pause for a keypress before each cell')
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
-    parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
+    parser.add_argument('--autocreate', default=False, action=argparse.BooleanOptionalAction, help='Automatically create cell IDs that are not found')
+    parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
+    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, read from stdin by default')
+    parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
+    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
 
     # Cell nameplate information
     parser.add_argument('-b', '--brand', action=store_as_property('/brand'), help='Set cell brand')
     parser.add_argument('-m', '--model', action=store_as_property('/model'), help='Set cell model')
     parser.add_argument('-c', '--capacity', action=store_as_property('/capacity/nom'), help='Set cell nominal capacity in mAh')
 
-    parser.add_argument('-t', '--tag', dest='tags', action='append', help='Tag cells')
+    parser.add_argument('--newtag', dest='tags', action='append', help='Tag cells')
     parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action='append', help='Set a property for cells')
 
     load_plugins()
@@ -84,6 +84,13 @@ if __name__ == '__main__':
     parser.add_argument('--lii500-current-setting', choices=['500 mA', '1000 mA'], default='500 mA', help='Current setting of the Lii-500 charger')
 
     args = parser.parse_args()
+
+    # Restrict log message to be above selected level
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
+    )
+
     log.debug('config', args=args)
 
     main(config=args)

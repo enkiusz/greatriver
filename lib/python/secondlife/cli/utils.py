@@ -77,7 +77,11 @@ def selected_cells(config):
         # Find cell
         path, metadata = find_cell(id)
         if not path:
-            path, metadata = new_cell(id=line)
+            if config.autocreate is True:
+                path, metadata = new_cell(id=id)
+            else:
+                log.error('cell not found', id=id)
+                sys.exit(1)
 
         if metadata.get('/id'):
             log.debug('cell found', path=path)
@@ -110,3 +114,11 @@ import argparse
 class AddSet(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         getattr(namespace, self.dest).add(values)
+
+class CompileJQ(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            setattr(namespace, self.dest, jq.compile(values))
+        except Exception as e:
+            log.error('cannot compile query', query=values, _exc_info=e)
+            sys.exit(1)
