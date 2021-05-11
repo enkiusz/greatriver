@@ -20,4 +20,4 @@ class CellIdentifiers(object):
 
         print('\n'.join(self.ids))
 
-v1.register_report(v1.Report('cell_ids', CellIdentifiers))
+v1.register_report(v1.Report('cell_ids', CellIdentifiers, default_enable=True))

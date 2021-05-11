@@ -43,7 +43,7 @@ def main(config):
 
     for (path, metadata) in selected_cells(config=config):
         for report in reports:
-            report.process_cell(path=path)
+            report.process_cell(path=path, metadata=metadata)
 
     for report in reports:
         report.report()
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     load_plugins() # Needed here to populate v1.reports dict
 
     # Then add arguments dependent on the loaded plugins
-    parser.add_argument('-R', '--report', choices=v1.reports.keys(), default=[], action='append', dest='reports', help='Report codewords')
+    parser.add_argument('-R', '--report', choices=v1.reports.keys(), default=[ rep.codeword for rep in v1.reports.values() if rep.default_enable ], action='append', dest='reports', help='Report codewords')
 
     args = parser.parse_args()
 
