@@ -21,7 +21,7 @@ import structlog
 from secondlife.celldb import find_cell, load_metadata, new_cell
 from secondlife.celldb import new_cell, store_measurement, change_properties
 from secondlife.plugins.api import v1, load_plugins
-from secondlife.cli.utils import selected_cells, measurement_ts, AddSet, CompileJQ
+from secondlife.cli.utils import selected_cells, measurement_ts, add_cell_selection_args
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -56,17 +56,13 @@ def store_as_property(property_path):
 
 if __name__ == '__main__':
 
-    # First add common arguments    
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    add_cell_selection_args(parser)
+
     parser.add_argument('-T', '--timestamp', const='now', nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause-before-cell', default=False, action='store_true', help='Pause for a keypress before each cell')
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
-    parser.add_argument('--autocreate', default=False, action=argparse.BooleanOptionalAction, help='Automatically create cell IDs that are not found')
-    parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
-    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, read from stdin by default')
-    parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
-    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
 
     # Cell nameplate information
     parser.add_argument('-b', '--brand', action=store_as_property('/brand'), help='Set cell brand')

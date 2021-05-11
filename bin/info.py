@@ -21,7 +21,7 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 log = structlog.get_logger()
 
 
-from secondlife.cli.utils import selected_cells, AddSet, CompileJQ
+from secondlife.cli.utils import selected_cells, add_cell_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 
@@ -45,10 +45,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Report on cells')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
-    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from stdin')
-    parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
-    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
+    add_cell_selection_args(parser)
 
     load_plugins() # Needed here to populate v1.reports dict
 

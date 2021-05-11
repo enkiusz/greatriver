@@ -8,6 +8,7 @@ from pathlib import Path
 from secondlife.celldb import find_cell, load_metadata, new_cell
 import jq
 import copy
+import argparse
 
 log = get_logger()
 
@@ -110,7 +111,6 @@ def measurement_ts(config):
 
     return time.mktime(time_parsed)
 
-import argparse
 class AddSet(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         getattr(namespace, self.dest).add(values)
@@ -122,3 +122,11 @@ class CompileJQ(argparse.Action):
         except Exception as e:
             log.error('cannot compile query', query=values, _exc_info=e)
             sys.exit(1)
+
+# Add arguments which are used by the selected_cells() function
+def add_cell_selection_args(parser):
+    parser.add_argument('--autocreate', default=False, action=argparse.BooleanOptionalAction, help='Create cell IDs that are given but not found')
+    parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
+    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, specify - to read from standard input')
+    parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
+    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
