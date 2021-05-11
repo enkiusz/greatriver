@@ -10,6 +10,7 @@ sys.path.append(str(libdir))
 import argparse
 import logging
 import structlog
+import jq
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -23,6 +24,13 @@ log = structlog.get_logger()
 from secondlife.cli.utils import selected_cells, AddSet
 from secondlife.plugins.api import v1, load_plugins
 
+class CompileJQ(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            setattr(namespace, self.dest, jq.compile(values))
+        except Exception as e:
+            log.error('cannot compile query', query=values, _exc_info=e)
+            sys.exit(1)
 
 def main(config):
     
@@ -47,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
     parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from stdin')
     parser.add_argument('--tag', '-T', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
+    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use jq syntax. Matches when a "true" string is returned as a single output')
 
     load_plugins() # Needed here to populate v1.reports dict
 

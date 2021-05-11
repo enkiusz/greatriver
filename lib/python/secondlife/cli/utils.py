@@ -6,6 +6,8 @@ import sys
 from structlog import get_logger
 from pathlib import Path
 from secondlife.celldb import find_cell, load_metadata, new_cell
+import jq
+import copy
 
 log = get_logger()
 
@@ -25,10 +27,22 @@ def cell_identifiers(config):
 def include_cell(path, metadata, config):
     # Check if cell is to be included based on configured criteria
 
-    if config.tags <= metadata.get('/tags', default=set()):
-        return True
-    else:
+    if not config.tags <= metadata.get('/tags', default=set()):
         return False
+
+    if config.metadata_jq:
+        # We need to copy the metadata in order to turn tags into a list()
+        # sets are not possible to serialize to JSON therefore jq cannot handle them
+        m_copy = copy.copy(metadata.data)
+        if 'tags' in m_copy:
+            m_copy['tags'] = list(m_copy['tags'])
+
+        # The jq should return only a single value, use first() to get it
+        res = config.metadata_jq.input(m_copy).first()
+        log.debug('jq query result', result=res, path=path, metadata=m_copy, query=config.metadata_jq)
+
+        if not res is True:
+            return False
 
     return True
 

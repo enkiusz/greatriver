@@ -34,3 +34,4 @@ typing-extensions==3.7.4.3
 tzlocal==2.1
 xdg==4.0.1
 pykeepass==3.2.0
+jq==1.1.3
