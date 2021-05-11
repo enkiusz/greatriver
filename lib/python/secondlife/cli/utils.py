@@ -47,6 +47,8 @@ def include_cell(path, metadata, config):
     return True
 
 def selected_cells(config):
+    cells_found_total = 0
+    last_progress_report = time.time()
 
     if config.all_cells:
         path = Path()
@@ -57,7 +59,14 @@ def selected_cells(config):
             try:
                 metadata = load_metadata(path)
                 if metadata.get('/id'):
-                    log.debug('cell found', id=metadata.get('/id'), path=path, meatadata=metadata)
+                    log.debug('cell found', path=path)
+
+                    # Progress report every 1000 cells or 2 seconds
+                    cells_found_total += 1
+                    if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
+                        last_progress_report = time.time()
+                        log.info('progress', cells_found_total=cells_found_total)
+
                     if include_cell(path, metadata, config=config):
                         yield (path, metadata)
             except Exception as e:
@@ -70,9 +79,20 @@ def selected_cells(config):
         if not path:
             path, metadata = new_cell(id=line)
 
-        log.debug('cell found', id=metadata.get('/id'), path=path, meatadata=metadata)
-        if include_cell(path, metadata, config=config):
-            yield (path, metadata)
+        if metadata.get('/id'):
+            log.debug('cell found', path=path)
+
+            # Progress report every 1000 cells or 2 seconds
+            cells_found_total += 1
+            if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
+                last_progress_report = time.time()
+                log.info('progress', cells_found_total=cells_found_total)
+
+            if include_cell(path, metadata, config=config):
+                yield (path, metadata)
+
+    # Final progress report
+    log.info('progress', cells_found_total=cells_found_total)
 
 def measurement_ts(config):
     # Parse the timestamp argument

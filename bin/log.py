@@ -41,7 +41,7 @@ def main(config):
         if not path:
             path, metadata = new_cell(id=id)
 
-        log.debug('cell found', path=path, metadata=metadata)
+        log.debug('cell found', path=path)
 
         # Adjust properties
         change_properties(path=path, metadata=metadata, config=config)
