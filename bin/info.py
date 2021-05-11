@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
     parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from stdin')
     parser.add_argument('--tag', '-T', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
-    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use jq syntax. Matches when a "true" string is returned as a single output')
+    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
 
     load_plugins() # Needed here to populate v1.reports dict
 
