@@ -40,4 +40,8 @@ class VFS(object):
         d[ p[-1] ] = data
 
     def get(self, path, default=None):
-        return self._find(path) or default
+        v = self._find(path)
+        if v is None:
+            return default
+        else:
+            return v
