@@ -6,6 +6,7 @@ import json
 from structlog import get_logger
 from secondlife.plugins.api import v1
 from secondlife.utils import VFS
+import time
 
 log = get_logger()
 
@@ -60,6 +61,19 @@ def new_cell(id):
     metadata = VFS(dict(v=0, id=id))
 
     save_metadata(metadata, metadata_path)
+
+    # Store a lifecycle event
+    m = dict(type='lifecycle', event='entry-created', ts=time.time())
+
+    log_filename = metadata_path.parent.joinpath('log.json')
+    log.debug('saving to log', filename=log_filename)
+
+    if not log_filename.exists():
+        log_filename.write_text('[]')
+
+    j = json.loads(log_filename.read_text())
+    j.append(m)
+    log_filename.write_text(json.dumps(j, indent=2))
 
     return (metadata_path, metadata)
 
