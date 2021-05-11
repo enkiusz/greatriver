@@ -25,7 +25,7 @@ def cell_identifiers(config):
 def include_cell(path, metadata, config):
     # Check if cell is to be included based on configured criteria
 
-    if config.tags <= metadata.get('/tags', set()):
+    if config.tags <= metadata.get('/tags', default=set()):
         return True
     else:
         return False
