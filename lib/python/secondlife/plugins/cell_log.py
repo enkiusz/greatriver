@@ -11,7 +11,7 @@ import time
 _attrs = ['years', 'months', 'days', 'hours']
 def _human_readable(delta):
     try:
-        return ' '.join([ '%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
+        return ' '.join([ '%d %ss' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
                 for attr in _attrs if getattr(delta, attr) ])
     except:
         return ''
