@@ -50,9 +50,12 @@ if __name__ == "__main__":
     load_plugins() # Needed here to populate v1.reports dict
 
     # Then add arguments dependent on the loaded plugins
-    parser.add_argument('-R', '--report', choices=v1.reports.keys(), default=[ rep.codeword for rep in v1.reports.values() if rep.default_enable ], action='append', dest='reports', help='Report codewords')
+    parser.add_argument('-R', '--report', choices=v1.reports.keys(), action='append', dest='reports', help='Report codewords')
 
     args = parser.parse_args()
+
+    if args.reports is None: # Set default reports only if none provided
+        args.reports = [ rep.codeword for rep in v1.reports.values() if rep.default_enable ]
 
     # Restrict log message to be above selected level
     structlog.configure(
