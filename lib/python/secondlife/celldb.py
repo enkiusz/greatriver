@@ -36,9 +36,9 @@ def save_metadata(metadata, filename):
         f.write(json.dumps(metadata.data, indent=2))
 
 
-def find_cell(cell_id):
-    p = Path()
-    for path in p.glob('**/meta.json'):
+def find_cell(cell_id, startpath=Path()):
+    log.info('searching for cell', id=cell_id)
+    for path in startpath.glob('**/meta.json'):
         try:
             metadata = load_metadata(path)
             if metadata.get('/id') == cell_id:
@@ -50,9 +50,7 @@ def find_cell(cell_id):
 
 
 def new_cell(id):
-    global log
-
-    log.debug('new cell', cell_id=id)
+    log.debug('creating cell', cell_id=id)
 
     cell_path = Path(id)
     cell_path.mkdir(exist_ok=True)
