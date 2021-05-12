@@ -69,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', action=store_as_property('/model'), help='Set cell model')
     parser.add_argument('-c', '--capacity', action=store_as_property('/capacity/nom'), help='Set cell nominal capacity in mAh')
 
-    parser.add_argument('--newtag', dest='tags', action='append', help='Tag cells')
+    parser.add_argument('--newtag', dest='newtags', default=[], action='append', help='Tag cells')
     parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action='append', help='Set a property for cells')
 
     load_plugins()

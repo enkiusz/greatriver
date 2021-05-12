@@ -83,12 +83,12 @@ def change_properties(path, metadata, config):
     for prop in config.properties:
         metadata.put(prop[0], prop[1])
     
-    if config.tags:
+    if config.newtags:
         if '/tags' not in metadata.paths():
             metadata.put('/tags', set())
 
         tags = metadata.get('/tags')
-        tags |= set(config.tags)
+        tags |= set(config.newtags)
 
     save_metadata(metadata, path)
 
