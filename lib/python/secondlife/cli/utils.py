@@ -5,10 +5,12 @@ import time
 import sys
 from structlog import get_logger
 from pathlib import Path
-from secondlife.celldb import find_cell, load_metadata, new_cell
+from secondlife.celldb import find_cell, load_metadata, save_metadata, new_cell, log_append
 import jq
 import copy
 import argparse
+
+from secondlife.plugins.api import v1
 
 log = get_logger()
 
@@ -110,6 +112,36 @@ def measurement_ts(config):
         sys.exit(1)
 
     return time.mktime(time_parsed)
+
+def change_properties(path, metadata, config):
+    global log
+
+    for prop in config.properties:
+        metadata.put(prop[0], prop[1])
+    
+    if config.newtags:
+        if '/tags' not in metadata.paths():
+            metadata.put('/tags', set())
+
+        tags = metadata.get('/tags')
+        tags |= set(config.newtags)
+
+    save_metadata(metadata, path)
+
+def perform_measurement(path, metadata, codeword, config, timestamp=None):
+    log.info('measurement start', path=path, codeword=codeword)
+
+    handler = v1.measurements[codeword].handler_class(config=config)
+
+    m = handler.measure(config)
+    if m:
+        if timestamp and 'ts' not in m:
+            m['ts'] = timestamp
+
+        log.info('store measurement results', path=path, codeword=codeword, results=m)
+        log_append(path, m)
+    else:
+        log.error("measurement unsuccessful", path=path, codeword=codeword)
 
 class AddSet(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):

@@ -18,10 +18,9 @@ import struct
 import logging
 import structlog
 
-from secondlife.celldb import find_cell, load_metadata, new_cell
-from secondlife.celldb import new_cell, store_measurement, change_properties
 from secondlife.plugins.api import v1, load_plugins
-from secondlife.cli.utils import selected_cells, measurement_ts, add_cell_selection_args
+from secondlife.cli.utils import selected_cells, add_cell_selection_args
+from secondlife.cli.utils import measurement_ts, change_properties, perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -46,7 +45,7 @@ def main(config):
             if config.pause_before_measure:
                 input(f"Press Enter to begin measurement '{cw}' for cell '{id}' >")
 
-            store_measurement(path=path, metadata=metadata, codeword=cw, config=config, timestamp = measurement_ts(config) if config.timestamp else None)
+            perform_measurement(path=path, metadata=metadata, codeword=cw, config=config, timestamp = measurement_ts(config) if config.timestamp else None)
 
 def store_as_property(property_path):
     class customAction(argparse.Action):

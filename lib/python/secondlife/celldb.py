@@ -61,57 +61,18 @@ def new_cell(id):
     save_metadata(metadata, metadata_path)
 
     # Store a lifecycle event
-    m = dict(type='lifecycle', event='entry-created', ts=time.time())
+    log_append(metadata_path, dict(type='lifecycle', event='entry-created', ts=time.time()))
 
-    log_filename = metadata_path.parent.joinpath('log.json')
-    log.debug('saving to log', filename=log_filename)
+    return (metadata_path, metadata)
+
+def log_append(path, entry):
+
+    log_filename = path.parent.joinpath('log.json')
+    log.info('adding log entry', log_filename=log_filename, entry=entry)
 
     if not log_filename.exists():
         log_filename.write_text('[]')
 
     j = json.loads(log_filename.read_text())
-    j.append(m)
+    j.append(entry)
     log_filename.write_text(json.dumps(j, indent=2))
-
-    return (metadata_path, metadata)
-
-def change_properties(path, metadata, config):
-    global log
-
-    for prop in config.properties:
-        metadata.put(prop[0], prop[1])
-    
-    if config.newtags:
-        if '/tags' not in metadata.paths():
-            metadata.put('/tags', set())
-
-        tags = metadata.get('/tags')
-        tags |= set(config.newtags)
-
-    save_metadata(metadata, path)
-
-def store_measurement(path, metadata, codeword, config, timestamp=None):
-    global log
-
-    log = log.bind(codeword=codeword)
-    
-    handler = v1.measurements[codeword].handler_class(config=config)
-
-    m = handler.measure(config)
-    if m:
-        if timestamp and 'ts' not in m:
-            m['ts'] = timestamp
-
-        log.debug('measurement data', data=m)
-
-        log_filename = path.parent.joinpath('log.json')
-        log.debug('saving to log', filename=log_filename)
-
-        if not log_filename.exists():
-            log_filename.write_text('[]')
-
-        j = json.loads(log_filename.read_text())
-        j.append(m)
-        log_filename.write_text(json.dumps(j, indent=2))
-    else:
-        log.error("measurement unsuccessful")
