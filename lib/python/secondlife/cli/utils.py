@@ -125,7 +125,7 @@ class CompileJQ(argparse.Action):
 
 # Add arguments which are used by the selected_cells() function
 def add_cell_selection_args(parser):
-    parser.add_argument('--autocreate', default=False, action=argparse.BooleanOptionalAction, help='Create cell IDs that are given but not found')
+    parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are given but not found')
     parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
     parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, specify - to read from standard input')
     parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
