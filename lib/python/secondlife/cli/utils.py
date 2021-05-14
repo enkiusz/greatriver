@@ -62,7 +62,7 @@ def selected_cells(config):
             try:
                 metadata = load_metadata(path)
                 if metadata.get('/id'):
-                    log.info('cell found', path=path)
+                    log.debug('cell found', path=path)
 
                     # Progress report every 1000 cells or 2 seconds
                     cells_found_total += 1
