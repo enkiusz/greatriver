@@ -40,25 +40,11 @@ class CapacityReport(object):
         except Exception as e:
             log.error('cannot read log', _exc_info=e)
             return
-    
-
-        # log.debug('measurement log', log=measurement_log)
-    
-        rows = []
-        for m in measurement_log:
-            rows.append([
-                _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else '',
-                _format_results(m.get('results'))
-            ])
-
-        # print(f"Cell measurement log:")
-        # asciitable.write(rows, names=['Timestamp', 'Results'], Writer=asciitable.FixedWidth)
-
         try:
-            capacity_measurement = next(filter(lambda m: 'capacity' in m['results'], measurement_log))
+            capacity_measurement = next(filter(lambda m: 'capacity' in m.get('results',{}), measurement_log))
             self.rows.append([ metadata.get('/id'), capacity_measurement['results']['capacity']['v'] ])
         except StopIteration:
-            log.warn('no capacity measurement', metadata=metadata, path=path)
+            log.warn('no capacity measurement', path=path)
             pass
 
     def report(self):
