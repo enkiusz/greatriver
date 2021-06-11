@@ -95,22 +95,14 @@ class JsonFiles(CellDB):
         return True
 
     def find(self) -> Infoset: # Generator
-        cells_found_total = 0
-        last_progress_report = 0
 
         for path in self.basepath.glob('**/meta.json'):
             try:
                 infoset = self._load_cell_infoset(path)
                 if infoset.fetch('.props.id'):
                     self.log.debug('cell found', path=path)
-
-                    # Progress report every 1000 cells or 2 seconds
-                    cells_found_total += 1
-                    if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
-                        last_progress_report = time.time()
-                        self.log.info('progress', cells_found_total=cells_found_total)
-
                     yield infoset
+
             except Exception as e:
                 self.log.error('cannot load cell', path=path, _exc_info=e)
 

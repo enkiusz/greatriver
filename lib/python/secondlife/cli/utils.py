@@ -10,7 +10,7 @@ import argparse
 import random
 import json
 import string 
-
+    
 from secondlife.plugins.api import v1
 
 log = get_logger()
