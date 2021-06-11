@@ -16,6 +16,8 @@ import brother_ql.conversion
 import brother_ql.devicedependent
 from brother_ql.raster import BrotherQLRaster
 
+from secondlife.cli.utils import generate_id
+
 log = get_logger()
 
 def generate_code128(txt, width=566, height=60):
@@ -72,7 +74,7 @@ def generate_label(id1, id2=None):
 def main(config, log):
 
     if config.g:
-        config.identifiers = [ f"C~{''.join(random.choices(string.digits, k=10))}" for i in range(config.g) ]
+        config.identifiers = [ generate_id('C') for i in range(config.g) ]
 
     if not config.printer_pretend:
         if not config.printer_id:
