@@ -30,20 +30,15 @@ class LogReport(object):
         self.log = get_logger(name=__class__.__name__)
         self.cells = dict()
 
-    def process_cell(self, path, metadata):
-        log = self.log.bind(path=path)
+    def process_cell(self, infoset):
+        log = self.log.bind(id=infoset.fetch('.props.id'))
         log.debug('processing cell')
 
-        try:
-            log_path = path.with_name('log.json')
-            measurement_log = json.loads(log_path.read_text(encoding='utf8'))
-        except Exception as e:
-            log.error('cannot read log', _exc_info=e)
-            return
+        measurement_log = infoset.fetch('.log')
     
         log.debug('measurement log', log=measurement_log)
 
-        self.cells[metadata.get('/id')] = [
+        self.cells[infoset.fetch('.props.id')] = [
             [
                 _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else '',
                 _format_results(m.get('results')) if m.get('results') else str(m)

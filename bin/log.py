@@ -8,19 +8,14 @@ libdir = currentdir.parent.joinpath('lib/python')
 sys.path.append(str(libdir))
 
 import argparse
-from pathlib import Path
-import io
 import os
 import json
-import time
-import serial
-import struct
 import logging
 import structlog
 
 from secondlife.plugins.api import v1, load_plugins
 from secondlife.cli.utils import selected_cells, add_cell_selection_args
-from secondlife.cli.utils import measurement_ts, change_properties, perform_measurement
+from secondlife.cli.utils import event_ts, change_properties, perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -32,20 +27,20 @@ log = structlog.get_logger()
 
 def main(config):
 
-    for (path, metadata) in selected_cells(config=config):
-        id = metadata.get('/id')
+    for infoset in selected_cells(config=config):
+        id = infoset.fetch('.props.id')
         if config.pause_before_cell:
             input(f"Press Enter to begin handling cell '{id}' >")
 
         # Adjust properties
-        change_properties(path=path, metadata=metadata, config=config)
+        change_properties(infoset=infoset, config=config)
 
         # Log measurements
         for cw in config.measurements:
             if config.pause_before_measure:
                 input(f"Press Enter to begin measurement '{cw}' for cell '{id}' >")
 
-            perform_measurement(path=path, metadata=metadata, codeword=cw, config=config, timestamp = measurement_ts(config) if config.timestamp else None)
+            perform_measurement(infoset=infoset, codeword=cw, config=config, timestamp = event_ts(config) if config.timestamp else None)
 
 def store_as_property(property_path):
     class customAction(argparse.Action):
@@ -54,6 +49,7 @@ def store_as_property(property_path):
     return customAction
 
 if __name__ == '__main__':
+    load_plugins()
 
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
@@ -64,21 +60,21 @@ if __name__ == '__main__':
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
 
     # Cell nameplate information
-    parser.add_argument('-b', '--brand', action=store_as_property('/brand'), help='Set cell brand')
-    parser.add_argument('-m', '--model', action=store_as_property('/model'), help='Set cell model')
-    parser.add_argument('-c', '--capacity', action=store_as_property('/capacity/nom'), help='Set cell nominal capacity in mAh')
+    parser.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
+    parser.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
+    parser.add_argument('-c', '--capacity', action=store_as_property('.capacity.nom'), help='Set cell nominal capacity in mAh')
 
-    parser.add_argument('--newtag', dest='newtags', default=[], action='append', help='Tag cells')
     parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action='append', help='Set a property for cells')
 
-    load_plugins()
-
     # Then add arguments dependent on the loaded plugins
-    parser.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Measurement codewords')
+    parser.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
+    parser.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
     parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
     parser.add_argument('--lii500-current-setting', choices=['500 mA', '1000 mA'], default='500 mA', help='Current setting of the Lii-500 charger')
 
     args = parser.parse_args()
+
+    args.backend = v1.celldb_backends[args.backend](config=args)
 
     # Restrict log message to be above selected level
     structlog.configure(

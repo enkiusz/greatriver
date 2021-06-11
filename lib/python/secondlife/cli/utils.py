@@ -5,14 +5,18 @@ import time
 import sys
 from structlog import get_logger
 from pathlib import Path
-from secondlife.celldb import find_cell, load_metadata, save_metadata, new_cell, log_append
 import jq
-import copy
 import argparse
+import random
+import json
+import string 
 
 from secondlife.plugins.api import v1
 
 log = get_logger()
+
+def generate_id(prefix, k=10):
+    return f"{prefix}~{''.join(random.choices(string.digits, k=10))}"
 
 def cell_identifiers(config):
 
@@ -27,22 +31,14 @@ def cell_identifiers(config):
             else:
                 yield id
 
-def include_cell(path, metadata, config):
+def include_cell(infoset, config):
     # Check if cell is to be included based on configured criteria
 
-    if not config.tags <= metadata.get('/tags', default=set()):
-        return False
-
-    if config.metadata_jq:
-        # We need to copy the metadata in order to turn tags into a list()
-        # sets are not possible to serialize to JSON therefore jq cannot handle them
-        m_copy = copy.copy(metadata.data)
-        if 'tags' in m_copy:
-            m_copy['tags'] = list(m_copy['tags'])
+    if config.jq_query:
 
         # The jq should return only a single value, use first() to get it
-        res = config.metadata_jq.input(m_copy).first()
-        log.debug('jq query result', result=res, path=path, metadata=m_copy, query=config.metadata_jq)
+        res = config.jq_query.input(text=infoset.to_json()).first()
+        log.debug('jq query result', id=infoset.fetch('.props.id'), result=res, query=config.jq_query)
 
         if not res is True:
             return False
@@ -54,40 +50,24 @@ def selected_cells(config):
     last_progress_report = time.time()
 
     if config.all_cells:
-        path = Path()
-        log.info('searching for cells', path=path)
+        log.info('searching for cells')
 
-        # Now look in subdirectories
-        for path in path.glob('**/meta.json'):
-            try:
-                metadata = load_metadata(path)
-                if metadata.get('/id'):
-                    log.debug('cell found', path=path)
-
-                    # Progress report every 1000 cells or 2 seconds
-                    cells_found_total += 1
-                    if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
-                        last_progress_report = time.time()
-                        log.info('progress', cells_found_total=cells_found_total)
-
-                    if include_cell(path, metadata, config=config):
-                        yield (path, metadata)
-            except Exception as e:
-                log.error('cannot load metadata', path=path, _exc_info=e)
+        for infoset in config.backend.find():
+            yield infoset
 
     for id in cell_identifiers(config=config):
 
         # Find cell
-        path, metadata = find_cell(id)
-        if not path:
+        infoset = config.backend.fetch(id)
+        if not infoset:
             if config.autocreate is True:
-                path, metadata = new_cell(id=id)
+                infoset = config.backend.create(id=id)
             else:
                 log.error('cell not found', id=id)
                 sys.exit(1)
 
-        if metadata.get('/id'):
-            log.info('cell found', path=path)
+        if infoset.fetch('.props.id'):
+            log.info('cell found', id=id)
 
             # Progress report every 1000 cells or 2 seconds
             cells_found_total += 1
@@ -95,13 +75,13 @@ def selected_cells(config):
                 last_progress_report = time.time()
                 log.info('progress', cells_found_total=cells_found_total)
 
-            if include_cell(path, metadata, config=config):
-                yield (path, metadata)
+            if include_cell(infoset, config=config):
+                yield infoset
 
     # Final progress report
     log.info('progress', cells_found_total=cells_found_total)
 
-def measurement_ts(config):
+def event_ts(config):
     # Parse the timestamp argument
     cal = parsedatetime.Calendar()
     time_parsed, context = cal.parse(config.timestamp, version=parsedatetime.VERSION_CONTEXT_STYLE)
@@ -113,23 +93,23 @@ def measurement_ts(config):
 
     return time.mktime(time_parsed)
 
-def change_properties(path, metadata, config):
+def change_properties(infoset, config):
     global log
 
     for prop in config.properties:
-        metadata.put(prop[0], prop[1])
-    
-    if config.newtags:
-        if '/tags' not in metadata.paths():
-            metadata.put('/tags', set())
+        infoset.put(prop[0], prop[1])
 
-        tags = metadata.get('/tags')
-        tags |= set(config.newtags)
+    # Store arbitrary events
+    for evt in config.events:
+        e = json.loads(evt)
+        if config.timestamp:
+            e.update(dict(ts=event_ts(config)))
+        infoset.fetch('.log').append(e)
 
-    save_metadata(metadata, path)
+    config.backend.put(infoset)
 
-def perform_measurement(path, metadata, codeword, config, timestamp=None):
-    log.info('measurement start', path=path, codeword=codeword)
+def perform_measurement(infoset, codeword, config, timestamp=None):
+    log.info('measurement start', id=infoset.fetch('.props.id'), codeword=codeword)
 
     handler = v1.measurements[codeword].handler_class(config=config)
 
@@ -138,10 +118,10 @@ def perform_measurement(path, metadata, codeword, config, timestamp=None):
         if timestamp and 'ts' not in m:
             m['ts'] = timestamp
 
-        log.info('store measurement results', path=path, codeword=codeword, results=m)
-        log_append(path, m)
+        log.info('store measurement results', id=infoset.fetch('.props.id'), codeword=codeword, results=m)
+        infoset.fetch('.log').append(m)
     else:
-        log.error("measurement unsuccessful", path=path, codeword=codeword)
+        log.error("measurement unsuccessful", id=infoset.fetch('.props.id'), codeword=codeword)
 
 class AddSet(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -157,8 +137,8 @@ class CompileJQ(argparse.Action):
 
 # Add arguments which are used by the selected_cells() function
 def add_cell_selection_args(parser):
+    parser.add_argument('--backend', default='json-files', choices=v1.celldb_backends.keys(), help='Select the celldb backend to use')
     parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are given but not found')
     parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
     parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, specify - to read from standard input')
-    parser.add_argument('--tag', dest='tags', action=AddSet, default=set(), help='Filter cells based on tags, all specified tags need to be present')
-    parser.add_argument('--metadata', dest='metadata_jq', action=CompileJQ, help='Filter cells based on metadata content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
+    parser.add_argument('--match', dest='jq_query', action=CompileJQ, help='Filter cells based on infoset content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')

@@ -10,14 +10,16 @@ class CellIdentifiers(object):
         self.log = get_logger(name=__class__.__name__)
         self.ids = []
 
-    def process_cell(self, path, metadata):
-        log = self.log.bind(path=path)
+    def process_cell(self, infoset):
+        log = self.log.bind(id=infoset.fetch('.props.id'))
         log.debug('processing cell')
 
-        self.ids.append(metadata.get('/id'))
+        self.ids.append(infoset.fetch('.props.id'))
 
-    def report(self):
-
-        print('\n'.join(self.ids))
+    def report(self, format='ascii'):
+        if format == 'ascii':
+            print('\n'.join(self.ids))
+        else:
+             log.error('unknown report format', format=format)
 
 v1.register_report(v1.Report('cell_ids', CellIdentifiers, default_enable=True))

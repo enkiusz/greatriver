@@ -13,18 +13,36 @@ class InternalResistanceReport(object):
         self.log = get_logger(name=__class__.__name__)
         self.data = {}
 
-    def process_cell(self, path, metadata):
-        log = self.log.bind(path=path)
+    def process_cell(self, infoset):
+        log = self.log.bind(id=infoset.fetch('.props.id'))
         log.debug('processing cell')
 
-        try:
-            log_path = path.with_name('log.json')
-            measurement_log = json.loads(log_path.read_text(encoding='utf8'))
-        except Exception as e:
-            log.error('cannot read log', _exc_info=e)
-            return
+        internal_resistance = infoset.fetch('.state.internal_resistance')
+        if internal_resistance is not None:
+            self.data[infoset.fetch('.props.id')] = internal_resistance
+        else:
+            log.warn('no IR measurement')
 
+    def report(self, format='ascii'):
+        if format == 'ascii':
+            if len(self.data.keys()) > 0:
+                asciitable.write([ (id, float(ir['v'])) for (id, ir) in self.data.items() ],
+                    names=['Cell ID', 'IR [mΩ]'],
+                    formats={ 'Cell ID': '%s', 'IR [mΩ]': '%s'},
+                    Writer=asciitable.FixedWidth)
+            else:
+                self.log.warning('no data')
+        else:
+            log.error('unknown report format', format=format)
+
+class InternalResistance(object):
+    def __init__(self, **kwargs):
+        self._cell = kwargs['cell']
+
+    def fetch(self, path, default=None):
         try:
+            measurement_log = self._cell.fetch('.log')
+
             ir_measurements = list(filter(lambda m: 'IR' in m.get('results',{}), measurement_log))
 
             # Search for RC3563, the the last IR measurement if this is not found
@@ -34,19 +52,10 @@ class InternalResistanceReport(object):
             else:
                 ir_measurement = ir_measurements[-1] # Last measurement is the newest one
 
-            self.data[metadata.get('/id')] = ir_measurement['results']['IR']['v']
+            return ir_measurement['results']['IR']
         except Exception as e:
-            log.warn('no IR measurement', path=path, _exc_info=e)
-            pass
+            return None
 
-    def report(self):
 
-        if len(self.data.keys()) > 0:
-            asciitable.write([ (id, ir) for (id, ir) in self.data.items() ], 
-                names=['Cell ID', 'IR [mΩ]'], 
-                formats={ 'Cell ID': '%s', 'IR [mΩ]': '%s'},
-                Writer=asciitable.FixedWidth)
-        else:
-            self.log.warning('no data')
-
+v1.register_state_var('internal_resistance', InternalResistance)
 v1.register_report(v1.Report('ir', InternalResistanceReport))

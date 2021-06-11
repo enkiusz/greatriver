@@ -24,38 +24,58 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-from secondlife.cli.utils import selected_cells, add_cell_selection_args
+from secondlife.cli.utils import generate_id, selected_cells, add_cell_selection_args
 from secondlife.plugins.api import v1, load_plugins
+
+def block_ir(block):
+    return 1 / sum([ 1/cell['ir'] for cell in block['cells'] ])
 
 def sum_stdev(blocks):
     return stdev([ b['sum'] for b in blocks])
 
+def sum_mean(blocks):
+    return mean([ b['sum'] for b in blocks])
+
 def sum_stdev_ok(blocks):
-    # Acceptable relative stdev is < 1 mAh
-    return sum_stdev(blocks) < 1
+    return sum_stdev(blocks) / sum_mean(blocks) < 0.01
+
+def max_ir_stdev(blocks):
+    return max([ b['ir']['stdev']/b['ir']['mean'] for b in blocks ])
+
+def ir_stdev_ok(blocks):
+    return max_ir_stdev(blocks) < 0.4
 
 def total_capacity(blocks):
     return sum([ b['sum'] for b in blocks ])
 
 def keep(blocks_before, blocks_after):
+    block_count = len(blocks_before)
 
     b_sums_stdev_before = stdev([ b['sum'] for b in blocks_before ])
     b_sums_stdev_after = stdev([ b['sum'] for b in blocks_after ])
     b_sums_stdev_delta_improved = b_sums_stdev_after < b_sums_stdev_before
 
-    if b_sums_stdev_delta_improved:
+    b_ir_stdev_before = [ b['ir']['stdev'] for b in blocks_before ]
+    b_ir_stdev_after = [ b['ir']['stdev'] for b in blocks_after ]
+    b_ir_stdev_improved = [ b_ir_stdev_after < b_ir_stdev_before for (b_ir_stdev_after, b_ir_stdev_before) in zip(b_ir_stdev_after, b_ir_stdev_before) ]
+
+    if b_sums_stdev_delta_improved and len(b_ir_stdev_improved) == block_count:
         return True
     else:
         return False
 
 def blocks_info(blocks, config):
-    log.info('pack layout', divergence=f'{sum_stdev(blocks):.2f} mAh', total_capacity=f"{total_capacity(blocks)/1000 * config.cell_voltage:.2f} kWh")
+    log.info('pack layout', capacity_divergence=f'{sum_stdev(blocks):.2f} mAh', max_ir_divergence=f"{max_ir_stdev(blocks)*100:.2f} %", total_capacity=f"{total_capacity(blocks)/1000 * config.cell_voltage:.2f} Wh")
     if config.loglevel == 'DEBUG':
-        print('\n'.join([ f"block {len(b['cells']):3d} cells, capa[sum {b['sum']:5.0f} mAh, mean {b['mean']:5.5f}, stdev {b['stdev']:3.5f} ({(b['stdev']/b['mean'])*100:3.2f} %)] IR[mean {0:5.3f} mΩ, stdev {0:5.3f} ({0:3.2f} %)]" for b in blocks ]))
-        print(f"Total capacity {total_capacity(blocks)/1000:.2f} Ah * {config.cell_voltage} V = {config.cell_voltage * total_capacity(blocks)/1000:.2f} kWh")
+        blocks_details(blocks, config)
+
+def blocks_details(blocks, config):
+    print('\n'.join([ f"block {b['id']}\t{len(b['cells']):3d} cells, capa[sum {b['sum']:5.0f} mAh, mean {b['mean']:5.5f}, stdev {b['stdev']:3.5f} ({(b['stdev']/b['mean'])*100:3.2f} %)] IR[total {b['ir']['total']:.2f} mΩ, mean {b['ir']['mean']:5.3f} mΩ, stdev {b['ir']['stdev']:5.3f} mΩ ({(b['ir']['stdev']/b['ir']['mean'])*100:3.2f} %)]" for b in blocks ]))
+    print(f"Capacity divergence: {sum_stdev(blocks):.2f} mAh ({(sum_stdev(blocks) / sum_mean(blocks)) * 100:.2f} %)")
+    print(f"Total capacity {total_capacity(blocks)/1000:.2f} Ah * {config.cell_voltage} V = {(config.cell_voltage * (total_capacity(blocks)/1000)):.2f} Wh")
 
 def stop(blocks):
-    if sum_stdev_ok(blocks):
+    if sum_stdev_ok(blocks) and ir_stdev_ok(blocks):
         return True
 
     return False
@@ -63,7 +83,7 @@ def stop(blocks):
 def get_blocks(pool, S, P):
     pool = pool.copy()
 
-    blocks = [ dict(cells=[]) for i in range(S) ]
+    blocks = [ dict(id=generate_id('BL'), cells=[]) for i in range(S) ]
     block_size = 0
     max_block_size = P
 
@@ -76,20 +96,35 @@ def get_blocks(pool, S, P):
             break
 
     for block in blocks:
-        block['mean'] = mean(block['cells'])
-        block['stdev'] = stdev(block['cells'])
-        block['sum'] = sum(block['cells'])
+        block['mean'] = mean([ c['capacity'] for c in block['cells'] ])
+        block['stdev'] = stdev([ c['capacity'] for c in block['cells'] ])
+        block['sum'] = sum([ c['capacity'] for c in block['cells'] ])
+
+        block['ir'] = {
+            'total': block_ir(block),
+            'mean': mean([ c['ir'] for c in block['cells'] ]),
+            'stdev': stdev([ c['ir'] for c in block['cells'] ])
+        }
 
     return blocks
 
 def main(config):
 
-    # for (path, metadata) in selected_cells(config=config):
-    #     print('cell: ', metadata.get('/id'))
-    #     print(json.dumps(metadata.paths()))
+    capa_report = v1.reports['capacity'].handler_class(config=config)
+    ir_report = v1.reports['ir'].handler_class(config=config)
 
-    pool = [ float(s.strip()) for s in sys.stdin.readlines() ]
-    pool.sort(reverse=True)
+    for infoset in selected_cells(config=config):
+        capa_report.process_cell(infoset=infoset)
+        ir_report.process_cell(infoset=infoset)
+
+    # Add only cell IDs which have both an IR and capacity measurements
+    common_ids = set(capa_report.data.keys()).intersection(set(ir_report.data.keys()))
+    log.info('cells loaded', capa_measured_count=len(capa_report.data.keys()),
+            ir_measurement_count=len(ir_report.data.keys()),
+            pool_count=len(common_ids))
+
+    pool = [ dict(id=id, capacity=capa_report.data[id], ir=ir_report.data[id]) for id in common_ids ]
+    pool.sort(reverse=True, key=lambda p: p['capacity'])
 
     if config.P is None:
         # No P selected, try to use all cells available
@@ -104,7 +139,6 @@ def main(config):
     blocks = get_blocks(pool, config.S, config.P)
     initial_blocks = copy.deepcopy(blocks)
 
-    os.system('clear')
     blocks_info(initial_blocks, config=config)
 
     iterations = 0
@@ -135,9 +169,12 @@ def main(config):
         if stop(blocks) or time.time() - last_new_pack > config.optimizer_timeout:
             break
 
+    log.info('optimization finished')
     blocks_info(blocks, config=config)
+    blocks_details(blocks, config=config)
 
 if __name__ == "__main__":
+    load_plugins()
 
     parser = argparse.ArgumentParser(description='Select cells to build a pack having S series-connected blocks')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
@@ -148,7 +185,11 @@ if __name__ == "__main__":
     parser.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
     
     parser.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float, help='Finish optimizer when a better solution is not found in SEC seconds')
+
+
     args = parser.parse_args()
+
+    args.backend = v1.celldb_backends[args.backend](config=args)
 
     # Restrict log message to be above selected level
     structlog.configure(
