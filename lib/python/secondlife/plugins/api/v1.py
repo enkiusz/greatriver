@@ -15,6 +15,7 @@ measurements = dict()
 reports = dict()
 state_vars = dict()
 celldb_backends = dict()
+infoset_transforms = dict()
 
 def register_measurement(measurement):
     measurements[measurement.codeword] = measurement
@@ -27,3 +28,6 @@ def register_state_var(path, handler_class):
 
 def register_celldb_backend(codeword, backend_class):
     celldb_backends[codeword] = backend_class
+
+def register_infoset_transform(codeword, transform_class):
+    infoset_transform[codeword] = transform_class

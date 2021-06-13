@@ -13,10 +13,10 @@ class InfosetReport(object):
         self.cells = dict()
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.props.id'))
+        log = self.log.bind(id=infoset.fetch('.id'))
         log.debug('processing cell')
 
-        self.cells[infoset.fetch('.props.id')] = infoset.to_json(indent=2)
+        self.cells[infoset.fetch('.id')] = infoset.to_json(indent=2)
 
     def report(self, format='ascii'):
         if format == 'ascii':

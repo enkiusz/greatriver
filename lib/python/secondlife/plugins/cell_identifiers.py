@@ -11,10 +11,10 @@ class CellIdentifiers(object):
         self.ids = []
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.props.id'))
+        log = self.log.bind(id=infoset.fetch('.id'))
         log.debug('processing cell')
 
-        self.ids.append(infoset.fetch('.props.id'))
+        self.ids.append(infoset.fetch('.id'))
 
     def report(self, format='ascii'):
         if format == 'ascii':

@@ -56,8 +56,10 @@ class Infoset(object):
     def to_json(self, **kwargs):
         return json.dumps(self, default=_infoset_encoder, **kwargs)
 
-def _infoset_encoder(infoset):
-    if hasattr(infoset, 'fetch'):
-        return infoset.fetch('.')
+def _infoset_encoder(v):
+    if hasattr(v, 'fetch'):
+        return v.fetch('.')
+    elif isinstance(v, bytes):
+        return f'bytes(len={len(v)})'
     else:
-        raise TypeError(f"Object of type {infoset.__class__.__name__} is not serializable")
+        raise TypeError(f"Object of type {v.__class__.__name__} is not serializable")

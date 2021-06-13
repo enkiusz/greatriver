@@ -2,23 +2,36 @@
 
 from pathlib import Path
 import json
-import time
 
 from structlog import get_logger
 from secondlife.plugins.api import v1
-from secondlife.utils import Infoset
+from secondlife.infoset import Infoset
 from secondlife.celldb import CellDB
 
 class JsonFiles(CellDB):
-    def __init__(self, **kwargs):
+    def __init__(self, dsn=None, **kwargs):
         super().__init__()
-        self.log = get_logger(name=__class__.__name__)
-        self.config = kwargs['config']
-        self.basepath = kwargs.get('basepath', Path())
-        self.log.info('creating backend', basepath=self.basepath)
+        self.log = get_logger()
+
+        if dsn is not None:
+            self.basepath = Path(dsn).resolve(strict=True)
+        else:
+            self.basepath = Path().resolve(strict=True)
+                
+        self.log.debug('backend setup', basepath=self.basepath)
+
+    def init(self):
+        self.log.info('creating celldb', basepath=self.basepath)
+
+        Path(self.basepath).mkdir(exist_ok=True)
+    
+    def __repr__(self):
+        return f'JsonFiles/{repr(self.basepath)}'
 
     def _load_cell_infoset(self, location: Path) -> Infoset:
         infoset = Infoset()
+        
+        cell_id = location.parent.name
 
         # Load properties
         # In version V0 meta.json contains fixed data
@@ -28,10 +41,21 @@ class JsonFiles(CellDB):
             if version_token != 'V0':
                 raise RuntimeError(f"Version '{version_token}' not supported")
 
-            infoset.put('.version', version_token)
-            infoset.put('.backend.location', str(location))
-
             j = json.load(f)
+
+            # TODO: Remoe this after transforming all into new format
+            if 'id' in j:
+                j.pop('id') # Remove ID from legacy file
+
+            infoset.put('.id', cell_id)
+
+            # Synthesize container path for cell:
+            # a/b/c/d/meta.json -> path is /a/b/c
+            rp = location.resolve().relative_to(self.basepath).parents[1]
+            if rp != Path():
+                infoset.put('.path', f'/{rp}')
+            else:
+                infoset.put('.path', '/')
 
             infoset.put('.props', Infoset(data=j))
 
@@ -45,27 +69,25 @@ class JsonFiles(CellDB):
         except Exception as e:
             self.log.error('cannot read log', filename=log_filename, _exc_info=e)
 
+        # Load non-JSON files (extra objects)
+        infoset.put('.extra', [])
+        for extra_filename in filter(lambda p: not p.match('*.json') and not p.is_dir(), location.parent.glob("*")):
+
+            infoset.fetch('.extra').append({
+                'name': extra_filename.name,
+                'props': { 
+                    'stat': {
+                        'ctime': extra_filename.stat().st_ctime,
+                        'mtime': extra_filename.stat().st_mtime
+                    }
+                },
+                'ref': None, # Content is directly stored, not referenced
+                'content': extra_filename.read_bytes()
+            })
+
         # Bind the state variables
         for (path, statevar_class) in v1.state_vars.items():
             infoset.put(f'.state.{path}', statevar_class(cell=infoset))
-
-        return infoset
-
-    def create(self, id: str) -> Infoset:
-
-        self.log.debug('creating cell', cell_id=id)
-
-        infoset = Infoset(data=dict(version='V0'))
-        infoset.put('.props', Infoset(data=dict(id=id)))
-        infoset.put('.log', [ dict(type='lifecycle', event='entry-created', ts=time.time()) ])
-
-        cell_path = Path(id)
-        cell_path.mkdir(exist_ok=True)
-
-        location = cell_path.joinpath('meta.json')
-        infoset.put('.backend.location', location)
-
-        self.put(infoset)
 
         return infoset
 
@@ -73,33 +95,45 @@ class JsonFiles(CellDB):
         self.log.info('searching for cell', id=id)
 
         for path in self.basepath.glob('**/meta.json'):
+            print(path)
             try:
                 infoset = self._load_cell_infoset(path)
                 print(infoset)
-                if infoset.fetch('.props.id') == id:
+                if infoset.fetch('.id') == id:
                     return infoset
             except Exception as e:
                 pass
         else:
             return None
 
-    def put(self, infoset: Infoset) -> bool:
-        location = infoset.fetch('.backend.location')
+    def put(self, infoset: Infoset):
+        
+        if infoset.fetch('.path') is not None and infoset.fetch('.path') != '/':
+            path = infoset.fetch('.path').lstrip('/')
+        else:
+            path = ''
 
-        with open(location, 'w') as f:
-            f.write(f"{infoset.fetch('.version')}\n")
+        location = Path(self.basepath).joinpath(path, infoset.fetch('.id'))
+        print('location', location)
+
+        location.mkdir(parents=True, exist_ok=True)
+
+        with open(location.joinpath('meta.json'), 'w') as f:
+            f.write(f"V0\n")
             f.write(json.dumps(infoset.fetch('.props')))
 
-        location.with_name('log.json').write_text(json.dumps(infoset.fetch('.log')) )
-        
-        return True
+        location.joinpath('log.json').write_text(json.dumps(infoset.fetch('.log')) )
+
+        for extra in infoset.fetch('.extra'):
+            # TODO: Restore file ctime and mtime from props
+            location.joinpath(extra['name']).write_bytes(extra['content'])
 
     def find(self) -> Infoset: # Generator
 
         for path in self.basepath.glob('**/meta.json'):
             try:
                 infoset = self._load_cell_infoset(path)
-                if infoset.fetch('.props.id'):
+                if infoset.fetch('.id'):
                     self.log.debug('cell found', path=path)
                     yield infoset
 

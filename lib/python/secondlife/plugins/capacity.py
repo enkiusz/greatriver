@@ -12,12 +12,12 @@ class CapacityReport(object):
         self.data = {}
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.props.id'))
+        log = self.log.bind(id=infoset.fetch('.id'))
         log.debug('processing cell')
 
         usable_capacity = infoset.fetch('.state.usable_capacity')
         if usable_capacity is not None:
-            self.data[infoset.fetch('.props.id')] = usable_capacity
+            self.data[infoset.fetch('.id')] = usable_capacity
         else:
             log.warn('no capacity measurement')
 

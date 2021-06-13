@@ -14,12 +14,12 @@ class InternalResistanceReport(object):
         self.data = {}
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.props.id'))
+        log = self.log.bind(id=infoset.fetch('.id'))
         log.debug('processing cell')
 
         internal_resistance = infoset.fetch('.state.internal_resistance')
         if internal_resistance is not None:
-            self.data[infoset.fetch('.props.id')] = internal_resistance
+            self.data[infoset.fetch('.id')] = internal_resistance
         else:
             log.warn('no IR measurement')
 

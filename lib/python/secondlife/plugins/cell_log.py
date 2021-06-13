@@ -31,14 +31,14 @@ class LogReport(object):
         self.cells = dict()
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.props.id'))
+        log = self.log.bind(id=infoset.fetch('.id'))
         log.debug('processing cell')
 
         measurement_log = infoset.fetch('.log')
     
         log.debug('measurement log', log=measurement_log)
 
-        self.cells[infoset.fetch('.props.id')] = [
+        self.cells[infoset.fetch('.id')] = [
             [
                 _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else '',
                 _format_results(m.get('results')) if m.get('results') else str(m)

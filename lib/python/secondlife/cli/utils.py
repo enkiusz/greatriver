@@ -10,7 +10,8 @@ import argparse
 import random
 import json
 import string 
-    
+import os
+
 from secondlife.plugins.api import v1
 
 log = get_logger()
@@ -38,35 +39,48 @@ def include_cell(infoset, config):
 
         # The jq should return only a single value, use first() to get it
         res = config.jq_query.input(text=infoset.to_json()).first()
-        log.debug('jq query result', id=infoset.fetch('.props.id'), result=res, query=config.jq_query)
+        log.debug('jq query result', id=infoset.fetch('.id'), result=res, query=config.jq_query)
 
         if not res is True:
             return False
 
     return True
 
-def selected_cells(config):
+def selected_cells(config, backend):
     cells_found_total = 0
     last_progress_report = time.time()
 
     if config.all_cells:
         log.info('searching for cells')
 
-        for infoset in config.backend.find():
-            yield infoset
+        for infoset in backend.find():
+            cells_found_total += 1
+            if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
+                last_progress_report = time.time()
+                log.info('progress', cells_found_total=cells_found_total)
+
+            if include_cell(infoset, config=config):
+                yield infoset
 
     for id in cell_identifiers(config=config):
 
         # Find cell
-        infoset = config.backend.fetch(id)
+        infoset = backend.fetch(id)
         if not infoset:
             if config.autocreate is True:
-                infoset = config.backend.create(id=id)
+                infoset = backend.create(id=id)
+
+                # Path will be updated here
+                for (k, v) in config.properties:
+                    infoset.put(k, v)
+                    
+                backend.put(infoset)
+
             else:
                 log.error('cell not found', id=id)
                 sys.exit(1)
 
-        if infoset.fetch('.props.id'):
+        if infoset.fetch('.id'):
             log.info('cell found', id=id)
 
             # Progress report every 1000 cells or 2 seconds
@@ -93,23 +107,8 @@ def event_ts(config):
 
     return time.mktime(time_parsed)
 
-def change_properties(infoset, config):
-    global log
-
-    for prop in config.properties:
-        infoset.put(prop[0], prop[1])
-
-    # Store arbitrary events
-    for evt in config.events:
-        e = json.loads(evt)
-        if config.timestamp:
-            e.update(dict(ts=event_ts(config)))
-        infoset.fetch('.log').append(e)
-
-    config.backend.put(infoset)
-
 def perform_measurement(infoset, codeword, config, timestamp=None):
-    log.info('measurement start', id=infoset.fetch('.props.id'), codeword=codeword)
+    log.info('measurement start', id=infoset.fetch('.id'), codeword=codeword)
 
     handler = v1.measurements[codeword].handler_class(config=config)
 
@@ -118,14 +117,10 @@ def perform_measurement(infoset, codeword, config, timestamp=None):
         if timestamp and 'ts' not in m:
             m['ts'] = timestamp
 
-        log.info('store measurement results', id=infoset.fetch('.props.id'), codeword=codeword, results=m)
+        log.info('store measurement results', id=infoset.fetch('.id'), codeword=codeword, results=m)
         infoset.fetch('.log').append(m)
     else:
-        log.error("measurement unsuccessful", id=infoset.fetch('.props.id'), codeword=codeword)
-
-class AddSet(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        getattr(namespace, self.dest).add(values)
+        log.error("measurement unsuccessful", id=infoset.fetch('.id'), codeword=codeword)
 
 class CompileJQ(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -137,8 +132,11 @@ class CompileJQ(argparse.Action):
 
 # Add arguments which are used by the selected_cells() function
 def add_cell_selection_args(parser):
-    parser.add_argument('--backend', default='json-files', choices=v1.celldb_backends.keys(), help='Select the celldb backend to use')
-    parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are given but not found')
+    parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are selected but not found')
     parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
-    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, specify - to read from standard input')
     parser.add_argument('--match', dest='jq_query', action=CompileJQ, help='Filter cells based on infoset content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
+    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from standard input')
+
+def add_backend_selection_args(parser):
+    parser.add_argument('--backend', default=os.getenv('CELLDB_BACKEND', 'json-files'), choices=v1.celldb_backends.keys(), help='Celldb backend')
+    parser.add_argument('--backend-dsn', default=os.getenv('CELLDB_BACKEND_DSN', None), help='The Data Source Name (URL)')
