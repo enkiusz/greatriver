@@ -21,7 +21,7 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 log = structlog.get_logger()
 
 
-from secondlife.cli.utils import selected_cells, add_cell_selection_args
+from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 
@@ -31,10 +31,12 @@ def main(config):
         log.info('nothing to do')
         return
 
+    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
+
     # Build objects for all reports
     reports = [ v1.reports[codeword].handler_class(config=config) for codeword in config.reports ]
 
-    for infoset in selected_cells(config=config):
+    for infoset in selected_cells(config=config, backend=backend):
         for report in reports:
             report.process_cell(infoset=infoset)
 
@@ -42,12 +44,18 @@ def main(config):
         report.report()
 
 if __name__ == "__main__":
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
+    )
+
     load_plugins()
 
     parser = argparse.ArgumentParser(description='Report on cells')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
 
     add_cell_selection_args(parser)
+    add_backend_selection_args(parser)
 
     # Then add arguments dependent on the loaded plugins
     parser.add_argument('-R', '--report', choices=v1.reports.keys(), action='append', dest='reports', help='Report codewords')
@@ -57,13 +65,8 @@ if __name__ == "__main__":
     if args.reports is None: # Set default reports only if none provided
         args.reports = [ rep.codeword for rep in v1.reports.values() if rep.default_enable ]
 
-    args.backend = v1.celldb_backends[args.backend](config=args)
-
     # Restrict log message to be above selected level
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
-    )
+    structlog.configure( wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)) )
 
     log.debug('config', args=args)
 
