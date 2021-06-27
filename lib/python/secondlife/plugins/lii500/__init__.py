@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 import struct
+import time
 from secondlife.plugins.api import v1
 from structlog import get_logger
+
+from .lcd_sniffer import fetch_charger_lcd
+from .charger_specs import lii500_current_setups
 
 log = get_logger()
 
@@ -11,23 +15,50 @@ class Lii500Meter(object):
     def __init__(self, **kwargs):
         self.config = kwargs['config']
 
-    def measure(self, config):
+
+    def measurement_from_charger(self, config):
+
+        lcd_state = fetch_charger_lcd(config=config)
+
+        if lcd_state.get('null', False) is True:
+            log.error('no cell present', lcd=lcd_state)
+            return None
+
+        #if lcd_state.get('mode', '') != 'nor test':
+        #    log.error('invalid test mode', lcd=lcd_state)
+        #    return None
+
+        if not lcd_state.get('end'):
+            log.error('test not finished', lcd=lcd_state)
+            return None
+
+        if lcd_state.get('capacity', None) is None:
+            log.error('no capacity result', lcd=lcd_state)
+            return None
+
+        result = {
+            'action': 'measurement', 'ts': time.time(),
+            'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
+            'setup': dict(mode_setting='NOR TEST', slot=lcd_state['cell_select']),
+            'results': {}
+        }
+
+        result['setup'].update( lii500_current_setups[lcd_state['current_select']] )
+
+        (capa_v, capa_u) = lcd_state['capacity'].split()
+        result['results']['capacity'] = dict(u=capa_u, v=capa_v)
+
+        if lcd_state.get('ir', None) is not None:
+            (ir_v, ir_u) = lcd_state['ir'].split()
+            result['results']['ir'] = dict(u='mOhm', v=ir_v)
+
+        return result
+
+
+    def manual_result_entry(self, config):
 
         capa = float(input('Capacity [mAh] > '))
         ir = float(input('IR [mOhm] > '))
-        
-        #
-        # Current settings from the manual: https://www.kupifonar.kz/upload/manuals/liitokala/liito-kala-lii-500-en.pdf
-        #
-        # When  you  choose  the  charging  current (300mah,500mah),  the  system  recognizes  the  discharging current is the 250mah automatically.
-        # When you  choose  the  charging  current (700mah,1000mah),  the  system  recognize  the  discharging current is the 500mah automatically.
-        #
-        setups = {
-            '300 mA':  dict(current_setting='300 mA',  charge_current='300 mA',  discharge_current='250 mA'),
-            '500 mA':  dict(current_setting='500 mA',  charge_current='500 mA',  discharge_current='250 mA'),
-            '700 mA':  dict(current_setting='700 mA',  charge_current='700 mA',  discharge_current='500 mA'),
-            '1000 mA': dict(current_setting='1000 mA', charge_current='1000 mA', discharge_current='500 mA'),
-        }
         
         result = {
             'action': 'measurement',
@@ -39,7 +70,27 @@ class Lii500Meter(object):
             }
         }
 
-        result['setup'].update( setups[config.lii500_current_setting] )
+        result['setup'].update( lii500_current_setups[config.lii500_current_setting] )
+        return result
+
+
+    def measure(self, config):
+
+        result = None
+
+        if config.lii500_port:
+
+            try:
+                result = self.measurement_from_charger(config=config)
+            except Exception as e:
+                log.warn('exception while trying to fetch from charger', _exc_info=e)
+
+            if result is None:
+                log.warn('cannot fetch result from charger')
+
+        if result is None:
+            result = self.manual_result_entry(config=config)
+
         return result
 
 v1.register_measurement(v1.Measurement('capa', Lii500Meter))
