@@ -83,13 +83,13 @@ class SelfDischargeRate(object):
 
             T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
             if T < 21:
-                log.warn('not enough days between capacity and OCV measurements', T=T)
+                log.warn('not enough days between capacity and OCV measurements', id=self._cell.fetch('.id'), T=T)
                 return None
             
             # Assume the cell resting voltage is at 4.1V after charging
             deltaV = 4.1 - ocv_measurement['results']['OCV']['v']
 
-            log.debug('self-discharge estimation', T=T, deltaV=deltaV)
+            log.debug('self-discharge estimation', id=self._cell.fetch('.id'), T=T, deltaV=deltaV)
 
             return { 'v': (deltaV * 1000)/T, 'u': 'mV / day' }
 
