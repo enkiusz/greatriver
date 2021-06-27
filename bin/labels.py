@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
+# Allow module load from lib/python in main repo
 import sys
+from pathlib import Path
+currentdir = Path(__file__).resolve(strict=True).parent
+libdir = currentdir.parent.joinpath('lib/python')
+sys.path.append(str(libdir))
+
 import argparse
 import random
 import string
