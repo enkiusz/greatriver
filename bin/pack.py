@@ -24,11 +24,11 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-from secondlife.cli.utils import generate_id, selected_cells, add_cell_selection_args
+from secondlife.cli.utils import generate_id, selected_cells, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 def block_ir(block):
-    return 1 / sum([ 1/cell['ir'] for cell in block['cells'] ])
+    return 1 / sum([ 1/cell.fetch('.state.internal_resistance')['v'] for cell in block['cells'] ])
 
 def sum_stdev(blocks):
     return stdev([ b['sum'] for b in blocks])
@@ -43,7 +43,7 @@ def max_ir_stdev(blocks):
     return max([ b['ir']['stdev']/b['ir']['mean'] for b in blocks ])
 
 def ir_stdev_ok(blocks):
-    return max_ir_stdev(blocks) < 0.4
+    return max_ir_stdev(blocks) < 0.3
 
 def total_capacity(blocks):
     return sum([ b['sum'] for b in blocks ])
@@ -96,35 +96,33 @@ def get_blocks(pool, S, P):
             break
 
     for block in blocks:
-        block['mean'] = mean([ c['capacity'] for c in block['cells'] ])
-        block['stdev'] = stdev([ c['capacity'] for c in block['cells'] ])
-        block['sum'] = sum([ c['capacity'] for c in block['cells'] ])
+        block['mean'] = mean([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
+        block['stdev'] = stdev([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
+        block['sum'] = sum([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
 
         block['ir'] = {
             'total': block_ir(block),
-            'mean': mean([ c['ir'] for c in block['cells'] ]),
-            'stdev': stdev([ c['ir'] for c in block['cells'] ])
+            'mean': mean([ c.fetch('.state.internal_resistance')['v'] for c in block['cells'] ]),
+            'stdev': stdev([ c.fetch('.state.internal_resistance')['v'] for c in block['cells'] ])
         }
 
     return blocks
 
 def main(config):
 
-    capa_report = v1.reports['capacity'].handler_class(config=config)
-    ir_report = v1.reports['ir'].handler_class(config=config)
+    backend = v1.celldb_backends[args.backend](config=args)
 
-    for infoset in selected_cells(config=config):
-        capa_report.process_cell(infoset=infoset)
-        ir_report.process_cell(infoset=infoset)
+    pool = []
+
+    for infoset in selected_cells(config=config, backend=backend):
+        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') and infoset.fetch('.state.self_discharge'):
+            if infoset.fetch('.state.self_discharge')['v'] < 5:
+                pool.append(infoset)
 
     # Add only cell IDs which have both an IR and capacity measurements
-    common_ids = set(capa_report.data.keys()).intersection(set(ir_report.data.keys()))
-    log.info('cells loaded', capa_measured_count=len(capa_report.data.keys()),
-            ir_measurement_count=len(ir_report.data.keys()),
-            pool_count=len(common_ids))
+    log.info('cell pool', count=len(pool))
 
-    pool = [ dict(id=id, capacity=capa_report.data[id], ir=ir_report.data[id]) for id in common_ids ]
-    pool.sort(reverse=True, key=lambda p: p['capacity'])
+    pool.sort(reverse=True, key=lambda cell: cell.fetch('.state.usable_capacity')['v'])
 
     if config.P is None:
         # No P selected, try to use all cells available
@@ -167,6 +165,7 @@ def main(config):
             log.info('progress', iterations=iterations)
 
         if stop(blocks) or time.time() - last_new_pack > config.optimizer_timeout:
+            log.warn('optimizer timeout')
             break
 
     log.info('optimization finished')
@@ -174,12 +173,17 @@ def main(config):
     blocks_details(blocks, config=config)
 
 if __name__ == "__main__":
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
+    )
     load_plugins()
 
     parser = argparse.ArgumentParser(description='Select cells to build a pack having S series-connected blocks')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
     add_cell_selection_args(parser)
-    
+    add_backend_selection_args(parser)
+
     parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
     parser.add_argument('-S', dest='S', type=int, default=1, help='The amount of series-connected blocks in a string')
     parser.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
@@ -189,13 +193,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    args.backend = v1.celldb_backends[args.backend](config=args)
-
     # Restrict log message to be above selected level
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
-    )
+    structlog.configure( wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)) )
 
     log.debug('config', args=args)
 
