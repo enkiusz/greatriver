@@ -95,10 +95,8 @@ class JsonFiles(CellDB):
         self.log.info('searching for cell', id=id)
 
         for path in self.basepath.glob('**/meta.json'):
-            print(path)
             try:
                 infoset = self._load_cell_infoset(path)
-                print(infoset)
                 if infoset.fetch('.id') == id:
                     return infoset
             except Exception as e:
@@ -114,7 +112,6 @@ class JsonFiles(CellDB):
             path = ''
 
         location = Path(self.basepath).joinpath(path, infoset.fetch('.id'))
-        print('location', location)
 
         location.mkdir(parents=True, exist_ok=True)
 
