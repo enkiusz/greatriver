@@ -10,6 +10,9 @@ import time
 # We care only about hour level accuracy
 _attrs = ['years', 'months', 'days', 'hours']
 def _human_readable(delta):
+    if delta.normalized().hours >= -1:
+        return '< 1 hour ago'
+
     try:
         return ' '.join([ '%d %ss' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
                 for attr in _attrs if getattr(delta, attr) ])
@@ -37,10 +40,11 @@ class LogReport(object):
         measurement_log = infoset.fetch('.log')
     
         log.debug('measurement log', log=measurement_log)
+        print([ 'YES' if 'ts' in m else 'BLANK' for m in measurement_log])
 
         self.cells[infoset.fetch('.id')] = [
             [
-                _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else '',
+                _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else 'NO TIMESTAMP',
                 _format_results(m.get('results')) if m.get('results') else str(m)
             ] for m in measurement_log
         ]
