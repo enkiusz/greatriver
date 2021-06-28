@@ -40,7 +40,6 @@ class LogReport(object):
         measurement_log = infoset.fetch('.log')
     
         log.debug('measurement log', log=measurement_log)
-        print([ 'YES' if 'ts' in m else 'BLANK' for m in measurement_log])
 
         self.cells[infoset.fetch('.id')] = [
             [
