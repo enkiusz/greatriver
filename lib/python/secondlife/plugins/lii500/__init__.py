@@ -10,6 +10,24 @@ from .charger_specs import lii500_current_setups
 
 log = get_logger()
 
+def load_charger_ports_file(filename):
+    log.debug('loading charger ports', filename=filename)
+
+    ports = dict()
+
+    with open(filename) as f:
+        for line in f.readlines():
+            line = line.rstrip()
+            if len(line) == 0:
+                continue
+            (id, port) = line.split(' ')
+            log.debug('charger port', id=id, port=port)
+            ports[id] = port
+
+    log.info('charger ports loaded', filename=filename, port_count=len(ports.keys()) )
+
+    return ports
+
 class Lii500Meter(object):
 
     def __init__(self, **kwargs):
@@ -78,17 +96,24 @@ class Lii500Meter(object):
 
         result = None
 
-        if config.lii500_port:
+        if config.lii500_ports_file:
+            ports = load_charger_ports_file(config.lii500_ports_file)
 
-            try:
-                result = self.measurement_from_charger(config=config)
-            except Exception as e:
-                log.warn('exception while trying to fetch from charger', _exc_info=e)
+            if not config.lii500_select:
+                config.lii500_select = input('Lii-500 Charger Select > ')
 
-            if result is None:
-                log.warn('cannot fetch result from charger')
+            if config.lii500_select in ports:
+                config.lii500_port = ports[charger_select]
+            else:
+                log.warn('unknown charger selector', select=charger_select)
+
+        try:
+            result = self.measurement_from_charger(config=config)
+        except Exception as e:
+            log.warn('exception while trying to fetch from charger', _exc_info=e)
 
         if result is None:
+            log.warn('cannot fetch result from charger')
             result = self.manual_result_entry(config=config)
 
         return result
