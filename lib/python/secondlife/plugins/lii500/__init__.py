@@ -107,7 +107,7 @@ class Lii500Meter(object):
                 charger_select = input('Lii-500 Charger Select > ')
 
             if charger_select in ports:
-                lii500_port = ports[config.lii500_select]
+                lii500_port = ports[charger_select]
             else:
                 log.warn('unknown charger selector', select=charger_select)
 
