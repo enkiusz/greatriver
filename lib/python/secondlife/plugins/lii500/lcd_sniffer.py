@@ -212,9 +212,9 @@ def byte_count(bits):
     else:
         return int(bits / 8) + 1
 
-def fetch_charger_lcd(config):
+def fetch_charger_lcd(port):
 
-    with serial.Serial(config.lii500_port, 115200) as ser:
+    with serial.Serial(port, 115200) as ser:
         log.debug('using serial port', port=ser)
 
         while True:

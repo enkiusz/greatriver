@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
     parser.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
     parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
-    parser.add_argument('--lii500-port', default=os.getenv('LII500_PORT', '/dev/ttyACM0'), help='Serial port used by the Lii-500 charger USB interface')
+    parser.add_argument('--lii500-port', default=os.getenv('LII500_PORT', None), help='Serial port used by the Lii-500 charger USB interface')
     parser.add_argument('--lii500-current-setting', choices=['300mA', '500 mA', '700 mA', '1000 mA'], default='500 mA', help='Current setting of the Lii-500 charger')
     parser.add_argument('--lii500-select', default=None, metavar='ID', help='Select the specified charger from the ports file')
     parser.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None), help='The file specifying serial ports for particular chargers')

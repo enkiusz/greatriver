@@ -34,9 +34,9 @@ class Lii500Meter(object):
         self.config = kwargs['config']
 
 
-    def measurement_from_charger(self, config):
+    def measurement_from_charger(self, port, config):
 
-        lcd_state = fetch_charger_lcd(config=config)
+        lcd_state = fetch_charger_lcd(port)
 
         if lcd_state.get('null', False) is True:
             log.error('no cell present', lcd=lcd_state)
@@ -96,24 +96,28 @@ class Lii500Meter(object):
 
         result = None
 
-        if config.lii500_ports_file:
+        lii500_port = config.lii500_port
+
+        if lii500_port is None and config.lii500_ports_file is not None:
             ports = load_charger_ports_file(config.lii500_ports_file)
 
-            if not config.lii500_select:
-                config.lii500_select = input('Lii-500 Charger Select > ')
+            charger_select = config.lii500_select
 
-            if config.lii500_select in ports:
-                config.lii500_port = ports[config.lii500_select]
+            if not charger_select:
+                charger_select_select = input('Lii-500 Charger Select > ')
+
+            if charger_select in ports:
+                lii500_port = ports[config.lii500_select]
             else:
-                log.warn('unknown charger selector', select=config.lii500_select)
+                log.warn('unknown charger selector', select=charger_select)
 
         try:
-            result = self.measurement_from_charger(config=config)
+            result = self.measurement_from_charger(lii500_port, config=config)
         except Exception as e:
-            log.warn('exception while trying to fetch from charger', _exc_info=e)
+            log.warn('exception while trying to fetch from charger', port=lii500_port, _exc_info=e)
 
         if result is None:
-            log.warn('cannot fetch result from charger')
+            log.warn('cannot fetch result from charger', port=lii500_port)
             result = self.manual_result_entry(config=config)
 
         return result
