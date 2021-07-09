@@ -104,7 +104,7 @@ class Lii500Meter(object):
             charger_select = config.lii500_select
 
             if not charger_select:
-                charger_select_select = input('Lii-500 Charger Select > ')
+                charger_select = input('Lii-500 Charger Select > ')
 
             if charger_select in ports:
                 lii500_port = ports[config.lii500_select]
