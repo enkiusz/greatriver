@@ -74,6 +74,18 @@ def store_as_property(property_path):
             args.properties.append( (property_path, values) )
     return customAction
 
+def add_as_tag(tags_path):
+    class customAction(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            args.properties.append( (f'{tags_path}.{values}', True) )
+    return customAction
+
+def add_property(props_path):
+    class customAction(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            args.properties.append( (f'{props_path}.{values[0]}', values[1]) )
+    return customAction
+
 if __name__ == '__main__':
     # Restrict log message to be above selected level
     structlog.configure(
@@ -98,7 +110,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--capacity', action=store_as_property('.capacity.nom'), help='Set cell nominal capacity in mAh')
 
     parser.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
-    parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action='append', help='Set a property for cells')
+    parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
+    parser.add_argument('--add-tag', action=add_as_tag('.props.tags'), help='Set a new tag for the cells')
     parser.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
 
     # Then add arguments dependent on the loaded plugins
