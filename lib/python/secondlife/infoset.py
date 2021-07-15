@@ -26,32 +26,39 @@ class Infoset(object):
         r = self.data
         path = path.split('.')
         while len(path) > 0:
+            if hasattr(r, '_find'):
+                # Delegate if we reached another infoset
+                return r._find('.'.join(path), mkpath=mkpath)
+
             item = path.pop(0)
             if not item: # Skip empty path elements
                 continue
-            if not item in r:
-                if not mkpath:
-                    return None
-                else:
-                    r[item] = {}
 
-            r = r.get(item)
-            if hasattr(r, 'fetch'):
-                return r.fetch('.'.join(path))
+            if (not item in r) and mkpath:
+                r[item] = {}
+
+            r = r[item]
 
         return r
 
     def put(self, path, data):
         p = path.split('.')
         d = self._find('.'.join(p[:-1]), mkpath=True)
-        d[ p[-1] ] = data
+
+        if hasattr(d, 'put'):
+            d.put(p[-1], data)
+        else:
+            d[ p[-1] ] = data
 
     def fetch(self, path, default=None):
-        v = self._find(path)
-        if v is None:
+        try:
+            v = self._find(path)
+            if hasattr(v, 'fetch'):
+                return v.fetch('')
+            else:
+                return v
+        except KeyError:
             return default
-        else:
-            return v
 
     def to_json(self, **kwargs):
         return json.dumps(self, default=_infoset_encoder, **kwargs)

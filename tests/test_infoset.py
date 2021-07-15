@@ -43,7 +43,10 @@ class TestInfoset(unittest.TestCase):
             def __init__(self):
                 self.d = dict(prop1='bb', prop2=12)
 
-            def fetch(self, path, default=None):
+            def _find(self, path, mkpath=False):
+                return self.d.get(path, 'FAKE_VALUE')
+
+            def fetch(self, path):
                 if path == '':
                     return self.d
 
@@ -65,13 +68,21 @@ class TestInfoset(unittest.TestCase):
     def test_embedded_infoset(self):
 
         infoset = Infoset()
-        infoset1 = Infoset()
+        infoset1 = Infoset(dict(id=42))
 
-        infoset1.put('.internal1', 42)
-        infoset.put('.infoset1', infoset1)
+        infoset.put('.embedded', infoset1)
 
-        self.assertEqual(infoset.fetch('.infoset1.internal1'), 42)
-        
+        # self.assertEqual(infoset.fetch('.embedded'), dict(id=42))
+
+        # infoset.put('.embedded.key', 'VALUE')
+        # self.assertEqual(infoset.fetch('.embedded.key'), 'VALUE')
+
+        # infoset.put('.embedded.key2', dict(second_id=112))
+        # self.assertEqual(infoset.fetch('.embedded.key2')['second_id'], 112)
+
+        infoset.put('.embedded.key3.inside', 'LOOK INSIDE')
+        self.assertEqual(infoset.fetch('.embedded.key3.inside'), 'LOOK INSIDE')
+
 if __name__ == '__main__':
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
