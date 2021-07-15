@@ -42,9 +42,9 @@ class Lii500Meter(object):
             log.error('no cell present', lcd=lcd_state)
             return None
 
-        #if lcd_state.get('mode', '') != 'nor test':
-        #    log.error('invalid test mode', lcd=lcd_state)
-        #    return None
+        if lcd_state.get('mode', '') != 'nor test':
+           log.error('invalid test mode', lcd=lcd_state)
+           return None
 
         if not lcd_state.get('end'):
             log.error('test not finished', lcd=lcd_state)
