@@ -80,7 +80,7 @@ def generate_label(id1, id2=None):
 def main(config, log):
 
     if config.g:
-        config.identifiers = [ generate_id('C') for i in range(config.g) ]
+        config.identifiers = [ generate_id(config.prefix) for i in range(config.g) ]
 
     if not config.printer_pretend:
         if not config.printer_id:
@@ -120,8 +120,9 @@ def main(config, log):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Create new cells')
+    parser = argparse.ArgumentParser(description='Generate new cell identifiers and print labels for them')
     parser.add_argument('-g', metavar='N', type=int, default=0, help='Number of cell identifiers to generate')
+    parser.add_argument('--prefix', default='C', help='Prefix before the tilda character ~')
     parser.add_argument('--printer-model', metavar='MODEL', default=os.getenv('BROTHER_QL_MODEL'), 
         choices=brother_ql.devicedependent.models, help='Select the printer model for brother_ql')
     parser.add_argument('--printer-id', metavar='PRINTER_ID', default=os.getenv('BROTHER_QL_PRINTER'),
