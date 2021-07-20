@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # Cell nameplate information
     parser.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
     parser.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
-    parser.add_argument('-c', '--capacity', action=store_as_property('.capacity.nom'), help='Set cell nominal capacity in mAh')
+    parser.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
 
     parser.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
     parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
