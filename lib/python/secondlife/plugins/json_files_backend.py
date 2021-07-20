@@ -43,10 +43,6 @@ class JsonFiles(CellDB):
 
             j = json.load(f)
 
-            # TODO: Remoe this after transforming all into new format
-            if 'id' in j:
-                j.pop('id') # Remove ID from legacy file
-
             infoset.put('.id', cell_id)
 
             # Synthesize container path for cell:
