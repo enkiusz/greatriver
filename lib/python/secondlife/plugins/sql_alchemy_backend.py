@@ -39,7 +39,7 @@ class LogEntry(Base):
     cell = relationship('Cell', back_populates='log_entries')
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} {self.id} cell_id={self.cell_id} idx={self.idx} ts={self.ts} entry={self.entry}>'
+        return f'<{self.__class__.__name__} cell_id={self.cell_id} idx={self.idx} ts={self.ts} entry={self.entry}>'
 
 class Extra(Base):
     __tablename__ = 'extras'
