@@ -10,7 +10,7 @@ import time
 # We care only about hour level accuracy
 _attrs = ['years', 'months', 'days', 'hours']
 def _human_readable(delta):
-    if delta.normalized().hours >= -1 and delta.normalized().hours < 0:
+    if delta.normalized().hours >= -1 and delta.normalized().hours <= 0:
         return '< 1 hour ago'
     try:
         return ' '.join([ '%d %ss' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
