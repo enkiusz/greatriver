@@ -42,6 +42,8 @@ class UsableCapacity(object):
             measurement_log = self._cell.fetch('.log')
 
             capacity_measurement = next(filter(lambda m: 'capacity' in m.get('results',{}), measurement_log))
+            # Make sure that the number we return is a float
+            capacity_measurement['results']['capacity']['v'] = float(capacity_measurement['results']['capacity']['v'])
             return capacity_measurement['results']['capacity']
         except StopIteration:
             return None
