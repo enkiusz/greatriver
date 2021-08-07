@@ -75,8 +75,22 @@ class Lii500Meter(object):
 
     def manual_result_entry(self, config):
 
-        capa = float(input('Capacity [mAh] > '))
-        ir = float(input('IR [mOhm] > '))
+        capa = None
+        ir = None
+
+        while capa is None or ir is None:
+
+            if capa is None:
+                try:
+                    capa = float(input('Capacity [mAh] > '))
+                except ValueError:
+                    continue
+
+            if ir is None:
+                try:
+                    ir = float(input('IR [mOhm] > '))
+                except ValueError:
+                    continue
         
         result = {
             'action': 'measurement',
