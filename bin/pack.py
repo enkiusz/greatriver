@@ -70,8 +70,8 @@ def blocks_info(blocks, config):
         blocks_details(blocks, config)
 
 def blocks_details(blocks, config):
-    print('\n'.join([ f"block {b['id']}\t{len(b['cells']):3d} cells, capa[sum {b['sum']:5.0f} mAh, mean {b['mean']:5.5f}, stdev {b['stdev']:3.5f} ({(b['stdev']/b['mean'])*100:3.2f} %)] IR[total {b['ir']['total']:.2f} mΩ, mean {b['ir']['mean']:5.3f} mΩ, stdev {b['ir']['stdev']:5.3f} mΩ ({(b['ir']['stdev']/b['ir']['mean'])*100:3.2f} %)]" for b in blocks ]))
-    print(f"Capacity divergence: {sum_stdev(blocks):.2f} mAh ({(sum_stdev(blocks) / sum_mean(blocks)) * 100:.2f} %)")
+    print('\n'.join([ f"block {b['id']}\t{len(b['cells']):3d} cells, capa[sum {b['sum']:5.0f} mAh, mean {b['mean']:5.5f}, stdev {b['stdev']:3.5f} ({(b['stdev']/b['mean'])*100:3.2f} %)] IR[parallel {b['ir']['total']:.2f} mΩ, mean {b['ir']['mean']:5.3f} mΩ, stdev {b['ir']['stdev']:5.3f} mΩ ({(b['ir']['stdev']/b['ir']['mean'])*100:3.2f} %)]" for b in blocks ]))
+    print(f"Capacity divergence (stdev between blocks): {sum_stdev(blocks):.2f} mAh ({(sum_stdev(blocks) / sum_mean(blocks)) * 100:.2f} %)")
     print(f"Total capacity {total_capacity(blocks)/1000:.2f} Ah * {config.cell_voltage} V = {(config.cell_voltage * (total_capacity(blocks)/1000)):.2f} Wh")
 
 def stop(blocks):
@@ -110,13 +110,12 @@ def get_blocks(pool, S, P):
 
 def main(config):
 
-    backend = v1.celldb_backends[args.backend](config=args)
+    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
     pool = []
 
     for infoset in selected_cells(config=config, backend=backend):
-        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') and infoset.fetch('.state.self_discharge'):
-            if infoset.fetch('.state.self_discharge')['v'] < 5:
+        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance'):
                 pool.append(infoset)
 
     # Add only cell IDs which have both an IR and capacity measurements
@@ -181,15 +180,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Select cells to build a pack having S series-connected blocks')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    add_cell_selection_args(parser)
     add_backend_selection_args(parser)
+    add_cell_selection_args(parser)
 
-    parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
-    parser.add_argument('-S', dest='S', type=int, default=1, help='The amount of series-connected blocks in a string')
-    parser.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
-    
-    parser.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float, help='Finish optimizer when a better solution is not found in SEC seconds')
-
+    group = parser.add_argument_group('packer')
+    group.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+    group.add_argument('-S', dest='S', type=int, default=2, help='The amount of series-connected blocks in a string')
+    group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
+    group.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float, help='Finish optimizer when a better solution is not found in SEC seconds')
 
     args = parser.parse_args()
 
