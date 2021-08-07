@@ -3,7 +3,6 @@ structlog==21.1.0
 
 # Secondlife-specific
 jq==1.1.3
-parsedatetime==2.6
 asciitable==0.8.0
 python-dateutil==2.8.1
 SQLAlchemy==1.4.22

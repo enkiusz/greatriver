@@ -12,6 +12,7 @@ import os
 import json
 import logging
 import structlog
+import time
 
 from secondlife.plugins.api import v1, load_plugins
 from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
@@ -40,8 +41,7 @@ def main(config):
         # Store arbitrary events
         for evt in config.events:
             e = json.loads(evt)
-            if config.timestamp:
-                e.update(dict(ts=event_ts(config)))
+            e.update(dict(ts=time.time()))
             infoset.fetch('.log').append(e)
 
         # Import extra files
@@ -64,7 +64,7 @@ def main(config):
             if config.pause_before_measure:
                 input(f"Press Enter to begin measurement '{cw}' for cell '{id}' >")
 
-            perform_measurement(infoset=infoset, codeword=cw, config=config, timestamp = event_ts(config) if config.timestamp else None)
+            perform_measurement(infoset=infoset, codeword=cw, config=config)
 
         backend.put(infoset)
 
@@ -100,7 +100,6 @@ if __name__ == '__main__':
     add_cell_selection_args(parser)
     add_backend_selection_args(parser)
 
-    parser.add_argument('-T', '--timestamp', const='now', nargs='?', help='Timestamp the log entry')
     parser.add_argument('--pause-before-cell', default=False, action='store_true', help='Pause for a keypress before each cell')
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
 

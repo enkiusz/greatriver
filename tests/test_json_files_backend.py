@@ -25,8 +25,6 @@ class TestJsonFilesBackend(unittest.TestCase):
             self.backend.init()
 
     def test_create(self):
-        print('dsn', self.dsn)
-
         infoset = self.backend.create(id='FAKE~1')
 
         self.assertEqual(infoset.fetch('.id'), 'FAKE~1')
