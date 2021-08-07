@@ -11,6 +11,7 @@ import argparse
 import logging
 import structlog
 import jq
+import pkgutil
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -43,6 +44,10 @@ def main(config):
     for report in reports:
         report.report()
 
+class load_more_plugins(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        load_plugins(pkgutil.resolve_name(values))
+
 if __name__ == "__main__":
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
@@ -53,6 +58,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Report on cells')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    parser.add_argument('--plugin-namespace', metavar='NAMESPACE', action=load_more_plugins, help='Load plugins from the specified namespace')
 
     add_cell_selection_args(parser)
     add_backend_selection_args(parser)

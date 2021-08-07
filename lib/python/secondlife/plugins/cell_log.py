@@ -9,10 +9,13 @@ import time
 
 # We care only about hour level accuracy
 _attrs = ['years', 'months', 'days', 'hours']
-def _human_readable(delta):
-    if delta.normalized().hours >= -1 and delta.normalized().hours < 0:
+def _since_now(ts):
+    if ts is None:
+        return 'NO TIMESTAMP'
+    if time.time() - ts < 3600:
         return '< 1 hour ago'
     try:
+        delta = relativedelta(seconds=ts - time.time())
         return ' '.join([ '%d %ss' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
                 for attr in _attrs if getattr(delta, attr) ])
     except:
@@ -42,7 +45,7 @@ class LogReport(object):
 
         self.cells[infoset.fetch('.id')] = [
             [
-                _human_readable(relativedelta(seconds=m.get('ts')-time.time())) if 'ts' in m else 'NO TIMESTAMP',
+                _since_now(m.get('ts')),
                 _format_results(m.get('results')) if m.get('results') else str(m)
             ] for m in measurement_log
         ]
@@ -52,7 +55,10 @@ class LogReport(object):
         if len(self.cells.items()) > 0:
             for (id, rows) in self.cells.items():
                 print(f"=== Log for {id}")
-                asciitable.write(rows, names=['Timestamp', 'Results'], Writer=asciitable.FixedWidth)
+                if len(rows) > 0:
+                    asciitable.write(rows, names=['Timestamp', 'Results'], Writer=asciitable.FixedWidth)
+                else:
+                    print("LOG EMPTY")
         else:
             self.log.warning('no data')
 

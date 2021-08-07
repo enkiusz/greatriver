@@ -93,7 +93,7 @@ class Lii500Meter(object):
                     continue
         
         result = {
-            'action': 'measurement',
+            'action': 'measurement', 'ts': time.time(),
             'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
             'setup': dict(mode_setting='NOR TEST'),
             'results': {
@@ -128,14 +128,16 @@ class Lii500Meter(object):
 
         try:
             result = self.measurement_from_charger(lii500_port, config=config)
-            if charger_select is not None:
-                result['equipment']['selector'] = charger_select
         except Exception as e:
             log.warn('exception while trying to fetch from charger', port=lii500_port, _exc_info=e)
 
         if result is None:
             log.warn('cannot fetch result from charger', port=lii500_port)
             result = self.manual_result_entry(config=config)
+
+        # Always store charger selector
+        if charger_select is not None:
+            result['equipment']['selector'] = charger_select
 
         return result
 
