@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import parsedatetime
 import time
 import sys
 from structlog import get_logger
@@ -95,28 +94,13 @@ def selected_cells(config, backend):
     # Final progress report
     log.info('progress', cells_found_total=cells_found_total)
 
-def event_ts(config):
-    # Parse the timestamp argument
-    cal = parsedatetime.Calendar()
-    time_parsed, context = cal.parse(config.timestamp, version=parsedatetime.VERSION_CONTEXT_STYLE)
-    log.debug('parsed timestamp', argument=config.timestamp, time_parsed=time_parsed, context=context)
-
-    if not context.hasDate and context != parsedatetime.pdtContext(accuracy=parsedatetime.pdtContext.ACU_NOW):
-        log.fatal('no date in timestamp', parsed=time_parsed, pdt_context=context)
-        sys.exit(1)
-
-    return time.mktime(time_parsed)
-
-def perform_measurement(infoset, codeword, config, timestamp=None):
+def perform_measurement(infoset, codeword, config):
     log.info('measurement start', id=infoset.fetch('.id'), codeword=codeword)
 
     handler = v1.measurements[codeword].handler_class(config=config)
 
     m = handler.measure(config)
     if m:
-        if timestamp and 'ts' not in m:
-            m['ts'] = timestamp
-
         log.info('store measurement results', id=infoset.fetch('.id'), codeword=codeword, results=m)
         infoset.fetch('.log').append(m)
     else:
@@ -132,11 +116,13 @@ class CompileJQ(argparse.Action):
 
 # Add arguments which are used by the selected_cells() function
 def add_cell_selection_args(parser):
-    parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are selected but not found')
-    parser.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
-    parser.add_argument('--match', dest='jq_query', action=CompileJQ, help='Filter cells based on infoset content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
-    parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from standard input')
+    group = parser.add_argument_group('cell selection')
+    group.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are selected but not found')
+    group.add_argument('--all', '-a', default=False, action='store_true', dest='all_cells', help='Process all cells')
+    group.add_argument('--match', dest='jq_query', action=CompileJQ, help='Filter cells based on infoset content, use https://stedolan.github.io/jq/ syntax. Matches when a "true" string is returned as a single output')
+    group.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers, use - to read from standard input')
 
 def add_backend_selection_args(parser):
-    parser.add_argument('--backend', default=os.getenv('CELLDB_BACKEND', 'json-files'), choices=v1.celldb_backends.keys(), help='Celldb backend')
-    parser.add_argument('--backend-dsn', default=os.getenv('CELLDB_BACKEND_DSN', None), help='The Data Source Name (URL)')
+    group = parser.add_argument_group('backend selection')
+    group.add_argument('--backend', default=os.getenv('CELLDB_BACKEND', 'json-files'), choices=v1.celldb_backends.keys(), help='Celldb backend')
+    group.add_argument('--backend-dsn', default=os.getenv('CELLDB_BACKEND_DSN', None), help='The Data Source Name (URL)')

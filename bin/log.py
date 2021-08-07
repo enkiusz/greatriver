@@ -16,7 +16,7 @@ import time
 
 from secondlife.plugins.api import v1, load_plugins
 from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
-from secondlife.cli.utils import event_ts, perform_measurement
+from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -97,30 +97,30 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    add_cell_selection_args(parser)
     add_backend_selection_args(parser)
+    add_cell_selection_args(parser)
 
     parser.add_argument('--pause-before-cell', default=False, action='store_true', help='Pause for a keypress before each cell')
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
 
     # Cell nameplate information
-    parser.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
-    parser.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
-    parser.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
+    group = parser.add_argument_group('cell properties')
+    group.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
+    group.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
+    group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
 
-    parser.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
-    parser.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
-    parser.add_argument('--add-tag', action=add_as_tag('.props.tags'), help='Set a new tag for the cells')
-    parser.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
+    group.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
+    group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
+    group.add_argument('--add-tag', action=add_as_tag('.props.tags'), help='Set a new tag for the cells')
+    group.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
+
+    group = parser.add_argument_group('cell log')
+    group.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
+    group.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
 
     # Then add arguments dependent on the loaded plugins
-    parser.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
-    parser.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
-    parser.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
-    parser.add_argument('--lii500-port', default=os.getenv('LII500_PORT', None), help='Serial port used by the Lii-500 charger USB interface')
-    parser.add_argument('--lii500-current-setting', choices=['300mA', '500 mA', '700 mA', '1000 mA'], default='500 mA', help='Current setting of the Lii-500 charger')
-    parser.add_argument('--lii500-select', default=None, metavar='ID', help='Select the specified charger from the ports file')
-    parser.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None), help='The file specifying serial ports for particular chargers')
+    for callback in v1.config_groups.values():
+        callback(parser)
 
     args = parser.parse_args()
 

@@ -4,6 +4,7 @@ import serial
 import time
 import struct
 from secondlife.plugins.api import v1
+import os
 
 from structlog import get_logger
 
@@ -142,4 +143,9 @@ class RC3563Meter(object):
             else:
                 return None
 
+def _config_group(parser):
+    group = parser.add_argument_group('rc3563')
+    group.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
+
 v1.register_measurement(v1.Measurement('rc', RC3563Meter))
+v1.register_config_group('rc3563', _config_group)
