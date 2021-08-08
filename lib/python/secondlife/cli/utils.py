@@ -10,8 +10,9 @@ import random
 import json
 import string 
 import os
+import pkgutil
 
-from secondlife.plugins.api import v1
+from secondlife.plugins.api import v1, load_plugins
 
 log = get_logger()
 
@@ -126,3 +127,11 @@ def add_backend_selection_args(parser):
     group = parser.add_argument_group('backend selection')
     group.add_argument('--backend', default=os.getenv('CELLDB_BACKEND', 'json-files'), choices=v1.celldb_backends.keys(), help='Celldb backend')
     group.add_argument('--backend-dsn', default=os.getenv('CELLDB_BACKEND_DSN', None), help='The Data Source Name (URL)')
+
+class load_more_plugins(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        load_plugins(pkgutil.resolve_name(values))
+
+def add_plugin_args(parser):
+    group = parser.add_argument_group('plugins')
+    group.add_argument('--plugin-namespace', metavar='NAMESPACE', action=load_more_plugins, help='Load plugins from the specified namespace')

@@ -11,7 +11,6 @@ import argparse
 import logging
 import structlog
 import jq
-import pkgutil
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -22,7 +21,7 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 log = structlog.get_logger()
 
 
-from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 
@@ -44,9 +43,6 @@ def main(config):
     for report in reports:
         report.report()
 
-class load_more_plugins(argparse.Action):
-    def __call__(self, parser, args, values, option_string=None):
-        load_plugins(pkgutil.resolve_name(values))
 
 if __name__ == "__main__":
     structlog.configure(
@@ -58,10 +54,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Report on cells')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    parser.add_argument('--plugin-namespace', metavar='NAMESPACE', action=load_more_plugins, help='Load plugins from the specified namespace')
-
-    add_cell_selection_args(parser)
+    add_plugin_args(parser)
     add_backend_selection_args(parser)
+    add_cell_selection_args(parser)
 
     # Then add arguments dependent on the loaded plugins
     parser.add_argument('-R', '--report', choices=v1.reports.keys(), action='append', dest='reports', help='Report codewords')

@@ -12,7 +12,7 @@ import logging
 import structlog
 
 from secondlife.plugins.api import v1, load_plugins
-from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -35,6 +35,8 @@ def etl(config):
     log.info('backends', source=src_backend, dest=dest_backend)
 
     for infoset in selected_cells(backend=src_backend, config=config):
+        for transform in v1.infoset_transforms.values():
+            infoset = transform(infoset, config)
         dest_backend.put(infoset)
 
 if __name__ == '__main__':
@@ -45,8 +47,10 @@ if __name__ == '__main__':
 
     load_plugins()
 
-    parser = argparse.ArgumentParser(description='Log an action')
+    parser = argparse.ArgumentParser(description='Celldb-wide tasks')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    add_plugin_args(parser)
+
     subparsers = parser.add_subparsers(help='sub-command help')
 
     parser_init = subparsers.add_parser('init', help='Create a new celldb')
@@ -55,12 +59,20 @@ if __name__ == '__main__':
     
     parser_etl = subparsers.add_parser('etl', help='Migrate cells between databases')
     parser_etl.set_defaults(cmd=etl)    
+
+    group = parser_etl.add_argument_group('source backend')
+    group.add_argument('--src-backend', choices=v1.celldb_backends.keys(), help='Source database backend')
+    group.add_argument('--src-dsn', help='The source Data Source Name (URL)')
+
     add_cell_selection_args(parser_etl)
 
-    parser_etl.add_argument('--src-backend', choices=v1.celldb_backends.keys(), help='Source database backend')
-    parser_etl.add_argument('--src-dsn', help='The source Data Source Name (URL)')
-    parser_etl.add_argument('--dest-backend', choices=v1.celldb_backends.keys(), help='Destination database backend')
-    parser_etl.add_argument('--dest-dsn', help='The destination Data Source Name (URL)')
+    group = parser_etl.add_argument_group('transforms')
+    group.add_argument('-T', '--transform', choices=v1.infoset_transforms.keys(), default=["copy"], action='append', dest='infoset_transforms', help='Apply the specified transforms (in order specified)')
+
+    group = parser_etl.add_argument_group('destination backend')
+    group.add_argument('--dest-backend', choices=v1.celldb_backends.keys(), help='Destination database backend')
+    group.add_argument('--dest-dsn', help='The destination Data Source Name (URL)')
+
 
     args = parser.parse_args()
 

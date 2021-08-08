@@ -97,6 +97,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    add_plugin_args(parser)
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 

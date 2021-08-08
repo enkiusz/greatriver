@@ -24,7 +24,7 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-from secondlife.cli.utils import generate_id, selected_cells, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import generate_id, selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 def block_ir(block):
@@ -180,6 +180,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Select cells to build a pack having S series-connected blocks')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    add_plugin_args(parser)
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 
