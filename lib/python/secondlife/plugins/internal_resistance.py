@@ -52,8 +52,6 @@ class InternalResistance(object):
             else:
                 ir_measurement = ir_measurements[-1] # Last measurement is the newest one
 
-            # Make sure we always return a float
-            ir_measurement['results']['IR']['v'] = float(ir_measurement['results']['IR']['v'])
             return ir_measurement['results']['IR']
         except Exception as e:
             return None
