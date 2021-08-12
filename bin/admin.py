@@ -35,8 +35,9 @@ def etl(config):
     log.info('backends', source=src_backend, dest=dest_backend)
 
     for infoset in selected_cells(backend=src_backend, config=config):
-        for transform in v1.infoset_transforms.values():
-            infoset = transform(infoset, config)
+        for codeword in config.infoset_transforms:
+            infoset = v1.infoset_transforms[codeword](infoset, config)
+
         dest_backend.put(infoset)
 
 if __name__ == '__main__':
