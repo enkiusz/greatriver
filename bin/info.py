@@ -61,6 +61,14 @@ if __name__ == "__main__":
     # Then add arguments dependent on the loaded plugins
     parser.add_argument('-R', '--report', choices=v1.reports.keys(), action='append', dest='reports', help='Report codewords')
 
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - report plugins
+    # - state var plugins
+    # - celldb backend plugins
+    included_plugins = v1.reports.keys() | v1.state_vars.keys() | v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser)
+
     args = parser.parse_args()
 
     if args.reports is None: # Set default reports only if none provided

@@ -57,7 +57,13 @@ if __name__ == '__main__':
     parser_init = subparsers.add_parser('init', help='Create a new celldb')
     parser_init.set_defaults(cmd=init)
     add_backend_selection_args(parser_init)
-    
+
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - celldb backend plugins
+    included_plugins = v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser_init)
+
     parser_etl = subparsers.add_parser('etl', help='Migrate cells between databases')
     parser_etl.set_defaults(cmd=etl)    
 
@@ -74,6 +80,14 @@ if __name__ == '__main__':
     group.add_argument('--dest-backend', choices=v1.celldb_backends.keys(), help='Destination database backend')
     group.add_argument('--dest-dsn', help='The destination Data Source Name (URL)')
 
+
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - state var plugins
+    # - celldb backend plugins
+    # - infoset tranform plugins
+    included_plugins = v1.state_vars.keys() | v1.celldb_backends.keys() | v1.infoset_transforms.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser_etl)
 
     args = parser.parse_args()
 

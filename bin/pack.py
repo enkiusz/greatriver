@@ -190,6 +190,13 @@ if __name__ == "__main__":
     group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
     group.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float, help='Finish optimizer when a better solution is not found in SEC seconds')
 
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - state var plugins
+    # - celldb backend plugins
+    included_plugins = v1.state_vars.keys() | v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser)
+
     args = parser.parse_args()
 
     # Restrict log message to be above selected level

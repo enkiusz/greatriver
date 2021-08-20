@@ -119,9 +119,13 @@ if __name__ == '__main__':
     group.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
     group.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
 
-    # Then add arguments dependent on the loaded plugins
-    for callback in v1.config_groups.values():
-        callback(parser)
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - measurement plugins
+    # - state var plugins
+    # - celldb backend plugins
+    included_plugins = v1.measurements.keys() | v1.state_vars.keys() | v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser)
 
     args = parser.parse_args()
 
