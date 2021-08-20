@@ -31,7 +31,7 @@ def register_celldb_backend(codeword, backend_class):
     celldb_backends[codeword] = backend_class
 
 def register_infoset_transform(codeword, transform_class):
-    infoset_transform[codeword] = transform_class
+    infoset_transforms[codeword] = transform_class
 
 def register_config_group(codeword, callback):
     config_groups[codeword] = callback

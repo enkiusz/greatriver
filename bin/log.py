@@ -15,7 +15,7 @@ import structlog
 import time
 
 from secondlife.plugins.api import v1, load_plugins
-from secondlife.cli.utils import selected_cells, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
@@ -97,6 +97,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Log an action')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+    add_plugin_args(parser)
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 

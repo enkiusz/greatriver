@@ -68,28 +68,30 @@ class SelfDischargeCheckResult(object):
                 return None
             last_capacity_measurement = measurement_log[last_capacity_measurement_idx]
 
-            # Now search for the OCV measurement after capacity measurement
+            # Now search for the OCV measurements after capacity measurement
             # (assume the cell was charged up to 100% during the capacity measurement)
-            ocv_measurement = next(
-                filter( lambda m: SelfDischargeCheckResult._ocv_measurement(m), measurement_log[last_capacity_measurement_idx:] ),
-                None
+            ocv_measurements = list(
+                filter( lambda m: SelfDischargeCheckResult._ocv_measurement(m), measurement_log[last_capacity_measurement_idx:] )
             )
-            if ocv_measurement is None:
+
+            if len(ocv_measurements) == 0:
                 log.warn('no OCV measurement after capacity measurement', id=self._cell.fetch('.id'))
                 return None
 
             log.debug('capacity measurement', m=last_capacity_measurement)
-            log.debug('ocv measurement', m=ocv_measurement)
+            log.debug('ocv measurements', m=ocv_measurements)
 
-            T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
-            if T < 21:
-                log.warn('not enough days between capacity and OCV measurements', id=self._cell.fetch('.id'), T=T)
-                return None
+            result = None
+            for ocv_measurement in ocv_measurements:
+                T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
+                if T < 21:
+                    log.warn('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T, ocv_measurement=ocv_measurement)
+                    continue
             
-            if ocv_measurement['results']['OCV']['v'] < 3.9:
-                result = 'FAIL'
-            else:
-                result = 'PASS'
+                if ocv_measurement['results']['OCV']['v'] < 3.9:
+                    result = 'FAIL'
+                else:
+                    result = 'PASS'
 
             log.debug('self-discharge check', id=self._cell.fetch('.id'), result=result)
 
@@ -100,5 +102,5 @@ class SelfDischargeCheckResult(object):
             return None
 
 
-v1.register_state_var('self_discharge.sd_check_result', SelfDischargeCheckResult)
+v1.register_state_var('self_discharge.assessment', SelfDischargeCheckResult)
 v1.register_report(v1.Report('self_discharge', SelfDischargeReport))
