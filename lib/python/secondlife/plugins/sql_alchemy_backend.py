@@ -160,7 +160,7 @@ class SQLAlchemy(CellDB):
 
         log_entries = infoset.fetch('.log')
         for idx in range(len(log_entries)):
-            ts = log_entries[idx].pop('ts', None)
+            ts = log_entries[idx].get('ts', None)
             self.session.merge( LogEntry(cell_id=cell_id, idx=idx, ts=ts, entry=log_entries[idx]) )
 
         for extra in infoset.fetch('.extra'):
