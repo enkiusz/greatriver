@@ -66,6 +66,11 @@ def main(config):
 
             perform_measurement(infoset=infoset, codeword=cw, config=config)
 
+        # Cleanup tags where value is false
+        tags_to_remove = [ tag for (tag,v) in infoset.fetch('.props.tags', {}).items() if v == False ]
+        for tag in tags_to_remove:                
+            del infoset.fetch('.props.tags')[tag]
+
         backend.put(infoset)
 
 def store_as_property(property_path):
@@ -74,10 +79,10 @@ def store_as_property(property_path):
             args.properties.append( (property_path, values) )
     return customAction
 
-def add_as_tag(tags_path):
+def add_as_tag(tags_path, value):
     class customAction(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
-            args.properties.append( (f'{tags_path}.{values}', True) )
+            args.properties.append( (f'{tags_path}.{values}', value) )
     return customAction
 
 def add_property(props_path):
@@ -112,7 +117,8 @@ if __name__ == '__main__':
 
     group.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
     group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
-    group.add_argument('--add-tag', action=add_as_tag('.props.tags'), help='Set a new tag for the cells')
+    group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Set a new tag for the cells')
+    group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Set a new tag for the cells')
     group.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
 
     group = parser.add_argument_group('cell log')
