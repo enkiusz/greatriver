@@ -148,4 +148,4 @@ def _config_group(parser):
     group.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
 
 v1.register_measurement(v1.Measurement('rc', RC3563Meter))
-v1.register_config_group('rc3563', _config_group)
+v1.register_config_group('rc', _config_group)
