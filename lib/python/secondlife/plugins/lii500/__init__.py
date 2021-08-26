@@ -150,4 +150,4 @@ def _config_group(parser):
     group.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None), help='The file specifying serial ports for particular chargers')
 
 v1.register_measurement(v1.Measurement('capa', Lii500Meter))
-v1.register_config_group('lii500', _config_group)
+v1.register_config_group('capa', _config_group)
