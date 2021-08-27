@@ -46,7 +46,6 @@ class InfosetReport(object):
             return
 
         if len(self.config.infoset_queries) > 0:
-            print(self.cells)
             asciitable.write([ [id] + [ result for result in self.cells[id] ] for id in self.cells.keys() ],
                 names=['Cell ID'] + [ query.program_string for query in self.config.infoset_queries ],
                 formats={ 'Cell ID': '%s' },
