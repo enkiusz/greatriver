@@ -51,9 +51,9 @@ class InfosetReport(object):
                 formats={ 'Cell ID': '%s' },
                 Writer=asciitable.FixedWidth)
         else:
-            for (id, items) in self.cells.items():
+            for (id, item) in self.cells.items():
                 print(f"=== Infoset for {id}")
-                print(infoset)
+                print(item[0])
 
 class CompileJQAndAppend(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
