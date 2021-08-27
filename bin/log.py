@@ -88,7 +88,19 @@ def add_as_tag(tags_path, value):
 def add_property(props_path):
     class customAction(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
-            args.properties.append( (f'{props_path}.{values[0]}', values[1]) )
+            name = values[0]
+            value = values[1]
+
+            if value[0] == '@':
+                # Load complex value from file and parse it as JSON
+                try:
+                    with open(value[1:]) as f:
+                        value = json.load(f)
+                except Exception as e:
+                    log.error('cannot load complex value', filename=value[1:], _exc_info=e)
+                    sys.exit(1)
+
+            args.properties.append( (f'{props_path}.{name}', value) )
     return customAction
 
 if __name__ == '__main__':
@@ -116,7 +128,7 @@ if __name__ == '__main__':
     group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
 
     group.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
-    group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells')
+    group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells, use @file.json to load a complex property value')
     group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Set a new tag for the cells')
     group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Set a new tag for the cells')
     group.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
