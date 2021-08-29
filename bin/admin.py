@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Python 3.9 is needed to load additional plugins as the code uses
+# https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
+
 # Allow module load from lib/python in main repo
 import sys
 from pathlib import Path
