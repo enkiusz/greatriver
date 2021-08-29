@@ -75,3 +75,9 @@ and used to produce a self-discharge rate.
 
 As can be seen the state variables for a cell are inferred based on observations (in the log) and expectations (in the fixed data) about the particular cell. As such they are not stored anywhere (except for the purposes of keeping a cache) but calculated on demand from other information.
 
+### Query examples
+
+Select all "likely fake" no-name Samsung cells that can still be re-used.
+
+.props.brand == "SAMSUNG" and .state.self_discharge.assessment == "PASS" and .props.tags.likely_fake == true and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat_charging == true | not)
+
