@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Python 3.9 is needed because of plugin loading code using
+# Python 3.9 is needed to load additional plugins as the code uses
 # https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
 # Allow module load from lib/python in main repo
@@ -134,8 +134,10 @@ def main(config):
         P = config.P    
 
     log.info('selecting cells', pool_size=len(pool), S=config.S, P=config.P)
-    # Initial blocks
+    if len(pool) < config.S * config.P:
+        log.warning('pool is too small for fill out all cells', pool_size=len(pool), S=config.S, P=config.P)
 
+    # Initial blocks
     blocks = get_blocks(pool, config.S, config.P)
     initial_blocks = copy.deepcopy(blocks)
 
