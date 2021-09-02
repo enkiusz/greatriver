@@ -1,0 +1,4 @@
+#!/bin/sh
+
+pkglink bin
+
