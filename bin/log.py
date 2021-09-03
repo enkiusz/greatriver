@@ -39,7 +39,14 @@ def main(config):
             input(f"Press Enter to begin handling cell '{id}' >")
 
         for prop in config.properties:
-            infoset.put(prop[0], prop[1])
+            # Check if manual entry of property value is requested
+            if prop[1] == '%s':
+                value = ''
+                while len(value) == 0:
+                    value = input(f'[{id}] {prop[0]} = ')
+                infoset.put(prop[0], value)
+            else:
+                infoset.put(prop[0], prop[1])
 
         # Store arbitrary events
         for evt in config.events:
