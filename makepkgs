@@ -2,3 +2,5 @@
 
 pkglink bin
 
+# Link ZSH completions into oh-my-zsh installation
+[ -d $HOME/.oh-my-zsh ] && pkglink share/zsh/completions:.oh-my-zsh/completions

@@ -1,0 +1,42 @@
+#compdef _secondlife_log log.py
+
+function _secondlife_log() {
+    integer ret=1
+    local -a args
+ 
+    args+=(
+        '(-h --help)'{-h,--help}'[show help]'
+        '--loglevel[Change log level]:level:(DEBUG,INFO,WARNING,ERROR,CRITICAL)'
+        '--pause-before-cell[Pause for a keypress before each cell]'
+        '--pause-before-measure[Pause for a keypress before each measurement]'
+        '--plugin-namespace[Load plugins from the specified namespace]:namespace:'
+
+        '--backend[Celldb backend]:backend:(json-files,sql-alchemy)'
+        '--backend-dsn[The Data Source Name (URL)]:dsn:'
+
+        '--autocreate[Create cell IDs that are selected but not found]'
+        '(-a --all)'{-a,--all}'[Process all cells]'
+        '--match[Filter cells based on infoset content]'
+
+        '(-b --brand)'{-b,--brand}'[Set cell brand]:brand:($(suggest.py --brand))'
+        '(-m --model)'{-m,--model}'[Set cell model]:model:($(suggest.py --model))'
+        '(-c --capacity)'{-c,--capacity}'[Set cell nominal capacity in mAh]:mAh:'
+        '--path[Set cell path]:path:'
+        '-p[Set a property for cells]:name:($(suggest.py --property-name)):value:'
+        '--add-tag[Add a tag]:tags:($(suggest.py --tag))'
+        '--del-tag[Remove a tag]:tags:($(suggest.py --tag))'
+
+        '(-m --measure)'{-m,--measure}'[Take measurements with the specified codewords]:codeword:(capa rc)'
+        '--event[Store arbitrary events in the log]'
+
+        '--lii500-port[Serial port used by the Lii-500 charger USB interface]:port:_files'
+        '--lii500-current-setting[Current setting of the Lii-500 charger]:setting:(300 500 700 1000)'
+        '--lii500-select[Select the specified charger from the ports file]:id'
+        '--lii500-ports-file[The file specifying serial ports for particular chargers]:ports:_files'
+
+        '--rc3563-port[Serial port connected to the RC3563 meter]:port:_files'
+    )
+    _arguments $args[@] && ret=0
+    return ret
+}
+
