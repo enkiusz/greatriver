@@ -13,6 +13,8 @@ sys.path.append(str(libdir))
 import argparse
 import logging
 import structlog
+from xdg import XDG_CACHE_HOME
+import pickle
 
 from secondlife.plugins.api import v1, load_plugins
 from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
@@ -42,6 +44,44 @@ def etl(config):
             infoset = v1.infoset_transforms[codeword](infoset, config)
 
         dest_backend.put(infoset)
+
+def suggest(config):
+    log.info('suggest', action=config.action)
+    if config.action == 'create':
+        backend = v1.celldb_backends[args.backend](args.backend_dsn, config=args)
+        
+        cache_filename = XDG_CACHE_HOME / 'secondlife' / 'suggestion-cache' / 'cache.pickle'
+        
+        tags = set()
+        prop_names = set()
+        brands = set()
+        models = set()
+
+        for infoset in selected_cells(config=config, backend=backend):
+            tags.update(infoset.fetch('.props.tags', []))
+
+            if infoset.fetch('.props.brand'):
+                brands.add(infoset.fetch('.props.brand'))
+
+            if infoset.fetch('.props.model'):
+                models.add(infoset.fetch('.props.model'))
+
+            # Select property names excluding the following:
+            # tags - these are handled seprately above
+            # brand and model - these are handled separetely above
+            # the version key - this is set by the cell db backend and cannot be manipulated directly
+            #
+            prop_paths = filter(lambda path: path.startswith('.props.') and 
+                not path.startswith('.props.tags.') and 
+                not path in ('.props.v', '.props.brand', '.props.model'), infoset.paths())
+            prop_names.update( map(lambda path: path[7:], prop_paths) )
+            
+
+        cache_filename.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_filename, 'wb') as f:
+            log.debug('storing cache', cache_filename=cache_filename)
+            pickle.dump(dict(tags=tags, prop_names=prop_names, brands=brands, models=models), f, pickle.HIGHEST_PROTOCOL)
+
 
 if __name__ == '__main__':
     structlog.configure(
@@ -83,7 +123,6 @@ if __name__ == '__main__':
     group.add_argument('--dest-backend', choices=v1.celldb_backends.keys(), help='Destination database backend')
     group.add_argument('--dest-dsn', help='The destination Data Source Name (URL)')
 
-
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
     # - celldb backend plugins
@@ -91,6 +130,21 @@ if __name__ == '__main__':
     included_plugins = v1.state_vars.keys() | v1.celldb_backends.keys() | v1.infoset_transforms.keys()
     for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
         v1.config_groups[codeword](parser_etl)
+
+
+    parser_suggest = subparsers.add_parser('suggest', help='Manage suggestion cache')
+    parser_suggest.set_defaults(cmd=suggest)
+
+    add_backend_selection_args(parser_suggest)
+    add_cell_selection_args(parser_suggest)
+
+    parser_suggest.add_argument('-A', '--action', choices=['create'], help='Specify action to perform on the suggestion cache')
+
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - celldb backend plugins
+    included_plugins = v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser_suggest)
 
     args = parser.parse_args()
 
