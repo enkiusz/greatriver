@@ -73,7 +73,7 @@ def suggest(config):
             #
             prop_paths = filter(lambda path: path.startswith('.props.') and 
                 not path.startswith('.props.tags.') and 
-                not path in ('.props.v', '.props.brand', '.props.model'), infoset.paths())
+                not path in ('.props.v', '.props.tags', '.props.brand', '.props.model'), infoset.paths())
             prop_names.update( map(lambda path: path[7:], prop_paths) )
             
 
