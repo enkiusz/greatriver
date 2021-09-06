@@ -21,7 +21,7 @@ class SelfDischargeReport(object):
         if sd_check_res is not None:
             self.data[infoset.fetch('.id')] = sd_check_res
         else:
-            log.warn('no self-discharge check result')
+            log.debug('no self-discharge check result')
 
     def report(self, format='ascii'):
         if format == 'ascii':
@@ -64,7 +64,7 @@ class SelfDischargeCheckResult(object):
                 filter( lambda idx: SelfDischargeCheckResult._capacity_measurement(measurement_log[idx]), reversed(range(0, len(measurement_log))) ),
                 None)
             if last_capacity_measurement_idx is None:
-                log.warn('no timestamped capacity measurement', id=self._cell.fetch('.id'))
+                log.debug('no timestamped capacity measurement', id=self._cell.fetch('.id'))
                 return None
             last_capacity_measurement = measurement_log[last_capacity_measurement_idx]
 
@@ -75,7 +75,7 @@ class SelfDischargeCheckResult(object):
             )
 
             if len(ocv_measurements) == 0:
-                log.warn('no OCV measurement after capacity measurement', id=self._cell.fetch('.id'))
+                log.debug('no OCV measurement after capacity measurement', id=self._cell.fetch('.id'))
                 return None
 
             log.debug('capacity measurement', m=last_capacity_measurement)
@@ -85,7 +85,7 @@ class SelfDischargeCheckResult(object):
             for ocv_measurement in ocv_measurements:
                 T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
                 if T < 21:
-                    log.warn('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T, ocv_measurement=ocv_measurement)
+                    log.debug('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T, ocv_measurement=ocv_measurement)
                     continue
             
                 if ocv_measurement['results']['OCV']['v'] < 3.9:

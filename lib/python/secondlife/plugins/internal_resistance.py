@@ -21,7 +21,7 @@ class InternalResistanceReport(object):
         if internal_resistance is not None:
             self.data[infoset.fetch('.id')] = internal_resistance
         else:
-            log.warn('no IR measurement')
+            log.debug('no IR measurement')
 
     def report(self, format='ascii'):
         if format == 'ascii':

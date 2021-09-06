@@ -19,7 +19,7 @@ class CapacityReport(object):
         if usable_capacity is not None:
             self.data[infoset.fetch('.id')] = usable_capacity
         else:
-            log.warn('no capacity measurement')
+            log.debug('no capacity measurement')
 
     def report(self, format='ascii'):
         if format == 'ascii':
