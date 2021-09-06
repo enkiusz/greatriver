@@ -91,7 +91,7 @@ class SQLAlchemy(CellDB):
 
             # Synthesize path from cache
             if cell.container_cell_id is not None:
-                parts = [ '', cell.container_cell_id ]
+                parts = [ '' ]
                 p = self._container_cache[cell.id]
                 while p is not None:
                     parts.append(p)
@@ -105,7 +105,7 @@ class SQLAlchemy(CellDB):
 
             # Synthesize path from database
             if cell.container_cell_id is not None:
-                parts = [ '', cell.container_cell_id ]
+                parts = [ '' ]
                 p = self.session.execute( select(Cell).where(Cell.id==cell.container_cell_id)).first()[0]
                 while p.container_cell_id is not None:
                     parts.append(p.continer_cell_id)
