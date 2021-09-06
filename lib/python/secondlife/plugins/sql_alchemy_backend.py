@@ -4,6 +4,7 @@ from structlog import get_logger
 import logging
 from pathlib import Path
 from collections import defaultdict
+from copy import deepcopy
 
 from sqlalchemy import select, create_engine, Table, Column, Integer, String, LargeBinary, Float, JSON, ForeignKey
 from sqlalchemy.orm import Session, declarative_base, relationship
@@ -83,7 +84,7 @@ class SQLAlchemy(CellDB):
         infoset.put('.extra', [])
         infoset.put('.log', [])
 
-        infoset.put('.props', cell.props)
+        infoset.put('.props', deepcopy(cell.props))
 
 
         if hasattr(self, '_container_cache'):
@@ -118,15 +119,15 @@ class SQLAlchemy(CellDB):
             if e.ts is not None:
                 e.entry.update({ 'ts': e.ts })
 
-            infoset.fetch('.log').append(e.entry)
+            infoset.fetch('.log').append(deepcopy(e.entry))
 
         for extra in extras:
             # TODO: Restore mtime and ctime from props
             infoset.fetch('.extra').append({
                 'name': extra.name,
-                'props': extra.props,
+                'props': deepcopy(extra.props),
                 'ref': extra.ref,
-                'content': extra.content
+                'content': deepcopy(extra.content)
             })
 
         # Bind the state variables
