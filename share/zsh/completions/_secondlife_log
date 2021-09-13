@@ -16,18 +16,18 @@ function _secondlife_log() {
 
         '--autocreate[Create cell IDs that are selected but not found]'
         '(-a --all)'{-a,--all}'[Process all cells]'
-        '--match[Filter cells based on infoset content]'
+        '--match[Filter cells based on infoset content]:jquery:'
 
         '(-b --brand)'{-b,--brand}'[Set cell brand]:brand:($(suggest.py --brand))'
         '(-m --model)'{-m,--model}'[Set cell model]:model:($(suggest.py --model))'
         '(-c --capacity)'{-c,--capacity}'[Set cell nominal capacity in mAh]:mAh:'
         '--path[Set cell path]:path:'
-        '-p[Set a property for cells]:name:($(suggest.py --property-name)):value:'
-        '--add-tag[Add a tag]:tags:($(suggest.py --tag))'
-        '--del-tag[Remove a tag]:tags:($(suggest.py --tag))'
+        '*-p[Set a property for cells]:name:($(suggest.py --property-name)):value:'
+        '*--add-tag[Add a tag]:tags:($(suggest.py --tag))'
+        '*--del-tag[Remove a tag]:tags:($(suggest.py --tag))'
 
-        '(-m --measure)'{-m,--measure}'[Take measurements with the specified codewords]:codeword:(capa rc)'
-        '--event[Store arbitrary events in the log]'
+        '*'{-m,--measure}'[Take measurements with the specified codewords]:codeword:(capa rc)'
+        '*--event[Store arbitrary events in the log]:json:'
 
         '--lii500-port[Serial port used by the Lii-500 charger USB interface]:port:_files'
         '--lii500-current-setting[Current setting of the Lii-500 charger]:setting:(300 500 700 1000)'
