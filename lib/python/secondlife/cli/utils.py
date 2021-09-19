@@ -17,7 +17,7 @@ from secondlife.plugins.api import v1, load_plugins
 log = get_logger()
 
 def generate_id(prefix, k=10):
-    return f"{prefix}~{''.join(random.choices(string.digits, k=10))}"
+    return f"{prefix}~{''.join(random.choices(string.digits, k=k))}"
 
 def cell_identifiers(config):
 
