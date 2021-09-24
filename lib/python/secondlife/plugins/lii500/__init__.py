@@ -65,11 +65,11 @@ class Lii500Meter(object):
         result['setup'].update( lii500_current_setups[lcd_state['current_select']] )
 
         (capa_v, capa_u) = lcd_state['capacity'].split()
-        result['results']['capacity'] = dict(u=capa_u, v=capa_v)
+        result['results']['capacity'] = dict(u=capa_u, v=float(capa_v))
 
         if lcd_state.get('ir', None) is not None:
             (ir_v, ir_u) = lcd_state['ir'].split()
-            result['results']['ir'] = dict(u='mOhm', v=ir_v)
+            result['results']['ir'] = dict(u='mOhm', v=float(ir_v))
 
         return result
 
