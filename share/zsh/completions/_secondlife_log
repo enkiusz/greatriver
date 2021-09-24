@@ -26,7 +26,7 @@ function _secondlife_log() {
         '*--add-tag[Add a tag]:tags:($(suggest.py --tag))'
         '*--del-tag[Remove a tag]:tags:($(suggest.py --tag))'
 
-        '*'{-m,--measure}'[Take measurements with the specified codewords]:codeword:(capa rc)'
+        '*'{-M,--measure}'[Take measurements with the specified codewords]:codeword:(capa rc)'
         '*--event[Store arbitrary events in the log]:json:'
 
         '--lii500-port[Serial port used by the Lii-500 charger USB interface]:port:_files'
