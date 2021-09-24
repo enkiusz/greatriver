@@ -132,18 +132,18 @@ if __name__ == '__main__':
     parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
 
     # Cell nameplate information
-    group = parser.add_argument_group('cell properties')
+    group = parser.add_argument_group('update cell properties')
     group.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
     group.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
     group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
 
     group.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
     group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells, use @file.json to load a complex property value')
-    group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Set a new tag for the cells')
-    group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Set a new tag for the cells')
+    group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Add a tag')
+    group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Remove a tag')
     group.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
 
-    group = parser.add_argument_group('cell log')
+    group = parser.add_argument_group('update cell log')
     group.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
     group.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
 
