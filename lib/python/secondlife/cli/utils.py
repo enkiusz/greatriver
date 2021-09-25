@@ -68,11 +68,7 @@ def selected_cells(config, backend):
         infoset = backend.fetch(id)
         if not infoset:
             if config.autocreate is True:
-                infoset = backend.create(id=id)
-
-                # Path will be updated here
-                for (k, v) in config.properties:
-                    infoset.put(k, v)
+                infoset = backend.create(id=id, path=getattr(config, 'path', '/'))
                     
                 backend.put(infoset)
 

@@ -137,7 +137,7 @@ if __name__ == '__main__':
     group.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
     group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
 
-    group.add_argument('--path', default=os.getenv('CELLDB_PATH'), action=store_as_property('.path'), help='Set cell path')
+    group.add_argument('--path', default=os.getenv('CELLDB_PATH'), help='Set cell path')
     group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells, use @file.json to load a complex property value')
     group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Add a tag')
     group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Remove a tag')

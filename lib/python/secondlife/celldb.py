@@ -13,14 +13,14 @@ class CellDB(object):
     def init(self, dsn):
         raise NotImplementedError()
 
-    def create(self, id: str) -> Infoset:
+    def create(self, id: str, path: str) -> Infoset:
         log.debug('creating cell', cell_id=id)
 
         infoset = Infoset()
         infoset.put('.id', id)
-        infoset.put('.path', None)
+        infoset.put('.path', path)
         infoset.put('.props', Infoset())
-        infoset.put('.log', [ dict(type='lifecycle', event='entry-created', ts=time.time()) ])
+        infoset.put('.log', [ dict(type='lifecycle', event='created', ts=time.time(), path=path) ])
         infoset.put('.extra', [])
 
         return infoset
