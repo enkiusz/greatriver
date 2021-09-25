@@ -39,6 +39,15 @@ class ActionCodes(Enum):
     STOP_CAPACITY_TEST = 'omc'
     HALT = ''
 
+class StatusStrings(Enum):
+    NOT_INSERTED = 'Not Inserted'
+    NEW_CELL = 'New cell inserted'
+    LVC_CHARGING = 'LVC Charging'
+    LVC_COMPLETED = 'LVC Completed'
+    LVC_CELL_REST = 'Cell rest 5 Min'
+    STOPPED_CHARGING = 'Stopped Charging'
+    STARTED_DISCHARGING = 'Started Discharging'
+    MCAP_STARTED_CHARGING = 'mCap Started Charging'
 
 _megacell_settings_map = {
     'MaV': dict(path='charge.voltage.max', unit='V'),
@@ -106,10 +115,10 @@ def _megacell_settings_pack(settings: Infoset) -> dict:
     
 _megacell_cell_data_map = {
     'voltage': dict(path='voltage', unit='V'),
-    'amps': dict(path='current', unit='mA', kv=lambda key, raw_value: dict(v=abs(raw_value), direction='charging' if raw_value > 0 else 'discharging' if raw_value < 0 else None)),
+    'amps': dict(path='current', unit='mA', value_kv=lambda key, raw_value: dict(v=abs(raw_value), direction='charging' if raw_value > 0 else 'discharging' if raw_value < 0 else None)),
     'capacity': dict(path='discharge.capacity', unit='mAh'),
     'chargeCapacity': dict(path='charge.capacity', unit='mAh'),
-    'status': dict(path='status_text'),
+    'status': dict(path='status_text', value_decode=lambda key, raw_value: StatusStrings(raw_value).name),
     'esr': dict(path='esr.current', unit='mOhm'),
     'action_length': dict(path='action.time_elapsed', unit='second'),
     'DiC': dict(path='capacity_test.target_cycles'),
@@ -129,18 +138,24 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
 
         for (key, spec) in _megacell_cell_data_map.items():
             raw_value = cell[key]
+            # Value is equal to raw value from JSON by default
+            value = raw_value 
 
-            if 'unit' in spec or 'kv' in spec:
+            if 'value_decode' in spec:
+                # Store the original value before decoding
+                cell_info[slot].put(f"_raw_{spec['path']}", raw_value)
+                value = spec['value_decode'](key, raw_value)
 
+            if 'unit' in spec:
+                # The value has a unit
                 value = dict(v=raw_value)
                 if 'unit' in spec:
                     value.update({ 'u': spec['unit']})
 
-                if 'kv' in spec:
-                    value.update( spec['kv'](key, raw_value) )
-
-            else:
-                value = raw_value
+            if 'value_kv' in spec:
+                value['_raw_v'] = value['v'] # Store raw_value
+                # The value has additional KVps
+                value.update( spec['value_kv'](key, raw_value) )
 
             cell_info[slot].put(spec['path'], value)
         
@@ -232,32 +247,34 @@ def megacell_api_session(base_url):
 def main(config):
     sess = megacell_api_session(config.baseurl)
     
-    # Get and set charger config
-    charger_config = sess.get_charger_config()
-    
-    infoset = _megacell_settings_unpack(charger_config)
-    print(infoset.to_json())
-    packed = _megacell_settings_pack(infoset)
-    print('PACKED')
-    print(packed)
-    #sess.set_charger_config(config)
+    if config.get_setup:
+        charger_config = sess.get_charger_config()
+        infoset = _megacell_settings_unpack(charger_config)
+        print(infoset.to_json())
+        packed = _megacell_settings_pack(infoset)
+        print('PACKED')
+        print(packed)
+        return
 
-    raw = sess.get_cell_data()
+    if config.info:
+        # Print cells info
+        cell_data = sess.get_cell_data()
+        print("RAW")
+        print(cell_data)
+        cell_info = _megacell_cell_data_unpack(cell_data)
+        print("PROCESSED")
+        print('\n'.join( [ci.to_json() for ci in cell_info.values()] ))
+        return
 
-    cell_data = sess.get_cell_data()
-    print("RAW")
-    print(cell_data)
-    cell_info = _megacell_cell_data_unpack(cell_data)
-    print("PROCESSED")
-    print('\n'.join( [ci.to_json() for ci in cell_info.values()] ))
+    if config.action:
 
-    if config.new_cells:
-        new_cell_slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "New cell inserted" ]
-        log.info('cells with new slots', new_cell_slots=new_cell_slots)
+        if config.new_cells:
+            new_cell_slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "New cell inserted" ]
+            log.info('cells with new slots', new_cell_slots=new_cell_slots)
 
-        slot_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+            slot_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
-        sess.multiple_slots_action(slot_numbers, ActionCodes[config.action])
+            sess.multiple_slots_action(slot_numbers, ActionCodes[config.action])
 
 
 def _config_group(parser):
@@ -277,6 +294,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Megacell charger')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
     parser.add_argument('--baseurl', help='Megacell charger endpoint URL')
+    parser.add_argument('--info', action='store_true', help='Print current cell data')
+    parser.add_argument('--get-setup', action='store_true', help='Print charger setup')
     parser.add_argument('--action', choices=[ac.name for ac in ActionCodes], help="Select the action to be performed by the charger")
 
     parser.add_argument('--lii500-select', default=None, metavar='ID', help='Select the specified charger from the ports file')
