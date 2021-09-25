@@ -214,6 +214,57 @@ addition of a replacement cell
     }
 }
 
+
+Measurement
+
+    {
+      "type": "measurement",
+      "event": "finished",
+      "ts": 1630781490.8879044,
+      "equipment": {
+        "model": "RC3563"
+      },
+      "results": {
+        "IR": {
+          "range": "AUTO",
+          "v": 33.8807,
+          "u": "mOhm"
+        },
+        "OCV": {
+          "range": "AUTO",
+          "unit": "V",
+          "v": 0.6815
+        }
+      }
+    }
+
+
+    {
+      "type": "measurement",
+      "event": "finished",
+      "equipment": {
+        "brand": "Liitokala",
+        "model": "Engineer LI-500"
+      },
+      "setup": {
+        "mode_setting": "NOR TEST",
+        "current_setting": "500 mA",
+        "charge_current": "500 mA",
+        "discharge_current": "250 mA"
+      },
+      "results": {
+        "capacity": {
+          "u": "mAh",
+          "v": 966.0
+        },
+        "IR": {
+          "u": "mOhm",
+          "v": 67.0
+        }
+      }
+    },
+
+
 ### The State (aka state)
 
 The state corresponds to the properties of a cell which change over time. A prime example of this is the cell's usable capacity. This measure decreases as the cell degrades over time. The most important point about the cell's state is that it is rarely measureable or specified directly. Most of the time the information contained in the Log and Fixed Data together allow the calculation of state characteristics.
