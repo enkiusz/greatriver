@@ -56,7 +56,7 @@ class Lii500Meter(object):
             return None
 
         result = {
-            'action': 'measurement', 'ts': time.time(),
+            'type': 'measurement', 'event': 'finished', 'ts': time.time(),
             'equipment': dict(brand='Liitokala', model='Engineer LI-500', port=port),
             'setup': dict(mode_setting='NOR TEST', slot=lcd_state['cell_select']),
             'results': {}
@@ -94,7 +94,7 @@ class Lii500Meter(object):
                     continue
         
         result = {
-            'action': 'measurement', 'ts': time.time(),
+            'type': 'measurement', 'event': 'finished', 'ts': time.time(),
             'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
             'setup': dict(mode_setting='NOR TEST'),
             'results': {

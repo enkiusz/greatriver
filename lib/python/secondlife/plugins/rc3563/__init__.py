@@ -139,7 +139,7 @@ class RC3563Meter(object):
 
             if result:
                 log.info('measurement results', results=result)
-                return dict(action='measurement', ts=time.time(), equipment=dict(model='RC3563'), results=result)
+                return dict(type='measurement', event='finished', ts=time.time(), equipment=dict(model='RC3563'), results=result)
             else:
                 return None
 
