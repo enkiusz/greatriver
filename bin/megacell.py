@@ -41,14 +41,38 @@ class ActionCodes(Enum):
 
 class StatusStrings(Enum):
     NOT_INSERTED = 'Not Inserted'
-    NEW_CELL = 'New cell inserted'
+    NEW_CELL_INSERTED = 'New cell inserted'
     LVC_CHARGING = 'LVC Charging'
     LVC_COMPLETED = 'LVC Completed'
     LVC_CELL_REST = 'Cell rest 5 Min'
     STOPPED_CHARGING = 'Stopped Charging'
     STARTED_DISCHARGING = 'Started Discharging'
     MCAP_STARTED_CHARGING = 'mCap Started Charging'
+    BAD_CELL = 'Bad Cell'
 
+class StateStrings(Enum):
+    LOW_VOLTAGE_CELL = 'Low voltage cell'
+    HEALTHY = 'Healthy'
+    LVC_RECOVERY_FAILED = 'LVC recovery failed'
+
+class Slots(Enum):
+    C1  = 0
+    C2  = 1
+    C3  = 2
+    C4  = 3
+    C5  = 4
+    C6  = 5
+    C7  = 6
+    C8  = 7
+    C9  = 8
+    C10 = 9
+    C11 = 10
+    C12 = 11
+    C13 = 12
+    C14 = 13
+    C15 = 14
+    C16 = 15
+    
 _megacell_settings_map = {
     'MaV': dict(path='charge.voltage.max', unit='V'),
     'StV': dict(path='charge.voltage.storage', unit='V'),
@@ -125,7 +149,7 @@ _megacell_cell_data_map = {
     'complete_cycles': dict(path='capacity_test.completed_cycles'),
     'temperature': dict(path='temperature.current', unit='degC'),
     'ChC': dict(path='busy'),
-    'State': dict(path='state')
+    'State': dict(path='state', value_decode=lambda key, raw_value: StateStrings(raw_value).name)
 }
 
 def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
@@ -133,7 +157,7 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
 
     for cell in raw_data['cells']:
         # Reflect the marking on the charger cell slots and LCD display
-        slot = f"C{cell['CiD'] + 1}"
+        slot = Slots(cell['CiD']).name
         cell_info[slot] = Infoset()
 
         for (key, spec) in _megacell_cell_data_map.items():
@@ -209,7 +233,7 @@ class MegaCellAPIV0Session(sessions.BaseUrlSession):
     def multiple_slots_action(self, slots, action: ActionCodes):
         log.debug('sending action to slots', slots=slots, action=action)
 
-        request = dict(cells=[ { "CiD": slot, "CmD": action.value } for slot in slots])
+        request = dict(cells=[ { "CiD": slot.value, "CmD": action.value } for slot in slots])
         log.debug('slot state change request', request=request)
 
         r = self.post('/api/set_cell', json=request)
@@ -224,6 +248,9 @@ class MegaCellAPIV0Session(sessions.BaseUrlSession):
 
     def start_lvc_recovery(self, slots):
         log.debug('')
+
+    def low_voltage_recovery(self, slot: Slots):
+        log.info('performing low voltage recovery', slot=slot)
 
 def megacell_api_session(base_url):
     s = sessions.BaseUrlSession(base_url=base_url)
@@ -245,6 +272,8 @@ def megacell_api_session(base_url):
     return None
 
 def main(config):
+    global log
+
     sess = megacell_api_session(config.baseurl)
     
     if config.get_setup:
@@ -269,18 +298,50 @@ def main(config):
     if config.action:
 
         if config.new_cells:
-            new_cell_slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "New cell inserted" ]
+            new_cell_slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "NEW_CELL_INSERTED" ]
             log.info('cells with new slots', new_cell_slots=new_cell_slots)
 
             slot_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
             sess.multiple_slots_action(slot_numbers, ActionCodes[config.action])
 
+        return
 
+    if config.workflow:
+        log = log.bind(mcc_select=config.mcc_select)
+
+        cell_data = sess.get_cell_data()
+        cell_info = _megacell_cell_data_unpack(cell_data)
+
+        if config.new_cells:
+            slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "NEW_CELL_INSERTED" ]
+            log.info('cells with new slots', new_cell_slots=slots)
+
+        log.info('launching workflow', slots=slots)
+        for slot in slots:
+            log = log.bind(slot=slot)
+            cell_id = input(f'[{config.mcc_select}/{slot}] Input cell ID > ')
+            log = log.bind(cell_id=cell_id)
+
+            log.info('performing low voltage recovery')
+            lvc_outcome = sess.low_voltage_recovery(slot)
+
+            if lvc_outcome['cell_bad']:
+                log.warning('cell bad')
+                continue
+
+            mcap_outcome = sess.measure_capacity(slot)
+
+            if mcap_outcome['cell_bad']:
+                log.warning('cell bad')
+                continue
+
+            mcap_results = mcap_outcome['results']
+            
 def _config_group(parser):
     group = parser.add_argument_group('megacell charger')
     group.add_argument('--mcc-baseurl', default=os.getenv('MCC_BASEURL', None), help='URL used for the API endpoint of the Megacell Charger')
-    group.add_argument('--mcc-select', default=None, metavar='ID', help='Select the specified charger from the urls file')
+    group.add_argument('--mcc-select', required=True, default=None, metavar='ID', help='Select the specified charger from the urls file')
     group.add_argument('--mcc-urls-file', default=os.getenv('MCC_URLS_FILE', None), help='The file specifying API endpoint URLs for particular chargers')
 
 
@@ -296,12 +357,10 @@ if __name__ == '__main__':
     parser.add_argument('--baseurl', help='Megacell charger endpoint URL')
     parser.add_argument('--info', action='store_true', help='Print current cell data')
     parser.add_argument('--get-setup', action='store_true', help='Print charger setup')
+    parser.add_argument('--workflow', action='store_true', help='Start workflow for cells already in charger')
     parser.add_argument('--action', choices=[ac.name for ac in ActionCodes], help="Select the action to be performed by the charger")
-
-    parser.add_argument('--lii500-select', default=None, metavar='ID', help='Select the specified charger from the ports file')
-    parser.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None), help='The file specifying serial ports for particular chargers')
    
-    parser.add_argument('-n', '--new-cells', dest='new_cells', default=False, action='store_true', help='Perform action on all new cells')
+    parser.add_argument('-n', '--new-cells', dest='new_cells', default=False, action='store_true', help='Perform action on all slots which contain new cells')
     parser.add_argument('slot', nargs='*', action='append', help='Perform action on specified slots')
 
     _config_group(parser)
