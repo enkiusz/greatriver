@@ -31,6 +31,17 @@ def generate_code128(txt, width=566, height=60):
     code = cb128.generate_barcode_with_contents(f'{txt}')
     return code
 
+def format_digits(s):
+    out = str()
+    while len(s) > 4:
+        out += s[0:3]
+        out += ' '
+        s = s[3:]
+
+    out += s
+    return out
+
+
 def generate_label(id1, id2=None):
     # 62x29 -> 696 x  271 usable area
     # 17x54 -> 165 x  566
@@ -51,10 +62,13 @@ def generate_label(id1, id2=None):
     label.paste(code_img, box=(x,y))
     y += code_img.size[1] + gap
 
-    # get the line size
-    text_width, text_height = font.getsize(id)
+    (code, num) = id.split('~')
+    id_text = f'{code}~{format_digits(num)}'
 
-    ctx.text((label.size[0]/2,y), id, font=font, anchor='ma', fill='black')
+    # get the line size
+    text_width, text_height = font.getsize(id_text)
+
+    ctx.text((label.size[0]/2,y), id_text, font=font, anchor='ma', fill='black')
     y += text_height + gap*2
 
     if id2:
