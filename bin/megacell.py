@@ -15,11 +15,22 @@ import logging
 import structlog
 import re
 import os
+import json
 from enum import Enum
 from collections import defaultdict
+import time
+from queue import Queue
+from threading import Thread
+import threading
+from structlog.threadlocal import bind_threadlocal, clear_threadlocal
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from requests_toolbelt import sessions
+
 from secondlife.infoset import Infoset
+from secondlife.plugins.api import v1, load_plugins
+from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -29,7 +40,7 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-class ActionCodes(Enum):
+class ActionCodes(str, Enum):
     START_LVC_RECOVERY = 'alr'
     START_CHARGING = 'ach'
     STOP_CHARGING = 'sc'
@@ -37,25 +48,63 @@ class ActionCodes(Enum):
     STOP_DISCHARGING = 'odc'
     START_CAPACITY_TEST = 'act'
     STOP_CAPACITY_TEST = 'omc'
-    HALT = ''
 
-class StatusStrings(Enum):
+class StatusStrings(str, Enum):
     NOT_INSERTED = 'Not Inserted'
     NEW_CELL_INSERTED = 'New cell inserted'
-    LVC_CHARGING = 'LVC Charging'
-    LVC_COMPLETED = 'LVC Completed'
-    LVC_CELL_REST = 'Cell rest 5 Min'
-    STOPPED_CHARGING = 'Stopped Charging'
-    STARTED_DISCHARGING = 'Started Discharging'
-    MCAP_STARTED_CHARGING = 'mCap Started Charging'
-    BAD_CELL = 'Bad Cell'
 
-class StateStrings(Enum):
+    LVC_CHARGING = 'LVC Charging'
+    LVC_CHARGED = 'LVC Charged'
+    LVC_CELL_REST = 'Cell rest 5 Min'
+    LVC_COMPLETED = 'LVC Completed'
+
+    STARTED_CHARGING = 'Started Charging'
+    STOPPED_CHARGING = 'Stopped Charging'
+    HOT_CHARGED = 'Hot Charged'
+
+    STARTED_DISCHARGING = 'Started Discharging'
+    DISCHARGED = 'Discharged'
+    HOT_DISCHARGED = 'Hot Discharged'
+
+    INITIATING_MCAP = 'Initiating mCap'
+    MCAP_STARTED_CHARGING = 'mCap Started Charging'
+    WAIT_FOR_ESR_TEST = 'Wait For ESR Test'
+    MCAP_STARTED_DISCHARGING = 'mCap Started Discharging'
+    MCAP_STORE_CHARGING = 'mCap Store Charging'
+    STORE_CHARGED = 'Store Charged'
+
+    BAD_CELL = 'Bad Cell' # StateStrings describes in detail what are the problems with the cell
+
+#
+# This is a bit more useless as it doesn't update when actions have started. For example it's possible to have:
+# 'status': 'mCap Started Charging',
+# and
+# 'State': 'HOT charged'
+# which makes no sense.
+#
+class StateStrings(str, Enum):
+    # Seen together with 'status': 'New cell inserted' or 'LVC Charging'
     LOW_VOLTAGE_CELL = 'Low voltage cell'
+
+    # Seen together with 'status': 'New cell inserted'
     HEALTHY = 'Healthy'
+
+    # Seen together with 'status': 'Bad Cell' when ESR is higher than maximum during capacity test
+    HIGH_ESR_ERROR = 'High ESR Error'
+
+    # Seen together with 'status': 'Bad Cell' when temperature exceeds maximum during capacity test
+    HOT_CHARGED = 'HOT charged'
+    HOT_DISCHARGED = 'HOT discharged'
+
+    # Seen together with 'status': 'Bad Cell' when capacity is less than minimum during capacity measurement
+    LOW_CAPACITY_ERROR = 'Low capacity Error'
+
+    # Seen together with 'status': 'Bad Cell' when:
+    # - max LVC time elapses
+    # - max volage drop after LVC is exceeded
     LVC_RECOVERY_FAILED = 'LVC recovery failed'
 
-class Slots(Enum):
+class Slots(int, Enum):
     C1  = 0
     C2  = 1
     C3  = 2
@@ -85,12 +134,12 @@ _megacell_settings_map = {
     'LmV': dict(path='lcv.voltage.min', unit='V'),
     'LcV': dict(path='lcv.voltage.end', unit='V'),
     'LmD': dict(path='bad_cell_rejection.lcv.max_voltage_drop', unit='V'),
-    'LmR': dict(path='lcv.time.max', unit='minute'),
-    'McH': dict(path='charge.time.max', unit='minute'),
-    'LcR': dict(path='bad_cell_reject.capacity.min', unit='mAh'),
+    'LmR': dict(path='lcv.time.max', unit='minutes'),
+    'McH': dict(path='charge.time.max', unit='minutes'),
+    'LcR': dict(path='bad_cell_rejection.capacity.min', unit='mAh'),
     'CcO': dict(path='charge.correction_factor', unit='1/1'),
     'DcO': dict(path='discharge.correction_factor', unit='1/1'),
-    'MsR': dict(path='bad_cell_reject.esr.max', unit='mOhm'),
+    'MsR': dict(path='bad_cell_rejection.esr.max', unit='mOhm'),
     #
     # settings.put('charge.current.max', dict(v=1, u='A')) # This is static and cannot be changed with the API
     #
@@ -121,8 +170,7 @@ def _megacell_settings_unpack(megacell_settings) -> Infoset:
 
 def _megacell_settings_pack(settings: Infoset) -> dict:
     """
-    Pack a generic charger settings object to a JSON dictionary which can
-    be sent to the MegaCell API endpoint
+    Pack a Infoset representing the charger settings object to a JSON dictionary which can be sent to the MegaCell API endpoint
 
     FIXME: Implement proper unit handling
     """
@@ -142,14 +190,14 @@ _megacell_cell_data_map = {
     'amps': dict(path='current', unit='mA', value_kv=lambda key, raw_value: dict(v=abs(raw_value), direction='charging' if raw_value > 0 else 'discharging' if raw_value < 0 else None)),
     'capacity': dict(path='discharge.capacity', unit='mAh'),
     'chargeCapacity': dict(path='charge.capacity', unit='mAh'),
-    'status': dict(path='status_text', value_decode=lambda key, raw_value: StatusStrings(raw_value).name),
-    'esr': dict(path='esr.current', unit='mOhm'),
+    'status': dict(path='status_text', value_decode=lambda key, raw_value: StatusStrings(raw_value)),
+    'esr': dict(path='esr.current', unit='Ohm'),
     'action_length': dict(path='action.time_elapsed', unit='second'),
     'DiC': dict(path='capacity_test.target_cycles'),
     'complete_cycles': dict(path='capacity_test.completed_cycles'),
     'temperature': dict(path='temperature.current', unit='degC'),
     'ChC': dict(path='busy'),
-    'State': dict(path='state', value_decode=lambda key, raw_value: StateStrings(raw_value).name)
+    'State': dict(path='state', value_decode=lambda key, raw_value: StateStrings(raw_value))
 }
 
 def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
@@ -157,7 +205,7 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
 
     for cell in raw_data['cells']:
         # Reflect the marking on the charger cell slots and LCD display
-        slot = Slots(cell['CiD']).name
+        slot = Slots(cell['CiD'])
         cell_info[slot] = Infoset()
 
         for (key, spec) in _megacell_cell_data_map.items():
@@ -185,50 +233,95 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
         
     return cell_info
 
+def retry(delay, max_retries, work, exc=None):
+    retry_count = 0
+    result = None
+    while result is None:
+        try:
+            result = work()
+            return result
+        except Exception as e:
+            if exc is not None:
+                exc(e, result)
+
+            retry_count += 1
+            if retry_count == max_retries:
+                raise(e)
+            time.sleep(delay)
+            log.warning('retrying', delay=delay, retry_count=retry_count, max_retries=max_retries)
+
+def _http_exc(e, res):
+    log.warning('exception', _exc_info=e)
+    if res is not None:
+        log.debug('exception in http request', method=res.request.method, url=res.request.url)
+        log.debug('http response', code=res.status_code, resource_url=res.url, headers=res.headers, content=res.text)
+
 class MegaCellAPIV0Session(sessions.BaseUrlSession):
 
     def __init__(self, base_url, **kwargs):
         log.debug('creating session', session_class=__class__, base_url=base_url)
         super().__init__(base_url=base_url, **kwargs)
+        self._max_retries = 20
+        self._retry_delay = 10
+        self._charger_id = 1 # This seems to be static for now
 
     def detect_fw_version(self):
         r = self.post('/api/who_am_i')
         r.raise_for_status()
         return r.json()['McC']
 
-    def get_charger_config(self):
-        log.debug('getting charger config')
+    def json_request(url, *args, **kwargs):
+        raise NotImplemented()
 
-        r = self.post('/api/get_config_info')
-        r.raise_for_status()
+    def request(self, method, url, *args, **kwargs):
 
-        self.charger_config = r.json()
-        log.debug('charger config', charger_config=self.charger_config)
+        def __work():
+            res = super(MegaCellAPIV0Session, self).request(method, url, *args, **kwargs)
+            if res.headers['Content-Type'] == 'text/json':
+                # Try to parse json, will raise and catch an exception if not possible
+                res.json()
+            return res
 
-        return self.charger_config
+        return retry(delay=self._retry_delay, max_retries=self._max_retries, work=__work, exc=_http_exc)
 
-    def set_charger_config(self, new_config):
-        log.debug('setting charger config', config=new_config)
+    def get_charger_settings(self):
+        log.debug('getting charger settings')
 
-        r = self.post('/api/set_config_info', json=new_config)
+        def __work():
+            r = self.post('/api/get_config_info')
+            r.raise_for_status()
+            return r.json()
+
+        config_data = retry(self._retry_delay, self._max_retries, work=__work, exc=_http_exc)
+
+        log.debug('charger settings data', config_data=config_data)
+        return _megacell_settings_unpack(config_data)
+
+    def set_charger_settings(self, new_config: Infoset):
+        log.debug('setting charger settings', config=new_config.to_json())
+
+        r = self.post('/api/set_config_info', json=_megacell_settings_pack(new_config))
         r.raise_for_status()
 
         log.debug('set config response', response=r.text)
         if r.text != 'Received':
-            log.error('error setting charge config', config=new_config, response=r.text)
+            log.error('error setting charge settings', config=new_config, response=r.text)
             return False
 
         return True
 
-    def get_cell_data(self):
-        log.debug('getting cell data')
+    def get_cells_info(self) -> Infoset:
+        log.debug('getting cells info')
 
-        r = self.post('/api/get_cells_info', json=dict(settings={'charger_id': 1}))
-        r.raise_for_status()
+        def __work():
+            r = self.post('/api/get_cells_info', json=dict(settings={'charger_id': self._charger_id}))
+            r.raise_for_status()
+            return r.json()
 
-        cell_data = r.json()
-        log.debug('cell info', cell_info=cell_data)
-        return cell_data
+        cells_data = retry(self._retry_delay, self._max_retries, work=__work)
+
+        log.debug('cells data from charger', cells_info=cells_data)
+        return _megacell_cell_data_unpack(cells_data)
 
     def multiple_slots_action(self, slots, action: ActionCodes):
         log.debug('sending action to slots', slots=slots, action=action)
@@ -246,11 +339,136 @@ class MegaCellAPIV0Session(sessions.BaseUrlSession):
 
         return True
 
-    def start_lvc_recovery(self, slots):
-        log.debug('')
 
-    def low_voltage_recovery(self, slot: Slots):
-        log.info('performing low voltage recovery', slot=slot)
+def low_voltage_recovery(sess, slot: Slots, queue: Queue):
+    log.info('performing low voltage recovery')
+    outcome = dict(ok=False)
+
+    cell_info = sess.get_cells_info()[slot]
+    status_text = cell_info.fetch('status_text')
+    outcome['status_text'] = status_text
+    outcome['state_text'] = cell_info.fetch('.state')
+
+    if status_text == StatusStrings.NOT_INSERTED:
+        # If cell is not inserted LVC cannot be started
+        log.error('cell not inserted')
+        return outcome
+
+    if status_text == StatusStrings.BAD_CELL:
+        # The cell is already marked as bad
+        log.error('bad cell')
+        return outcome
+
+    if status_text == StatusStrings.LVC_COMPLETED:
+        log.warn('lvc already completed')
+        outcome['ok'] = True
+        return outcome
+
+    res = sess.multiple_slots_action([slot], ActionCodes.START_LVC_RECOVERY)
+    if not res:
+        log.error('cannot start low voltage recovery')
+        return outcome
+
+    log.info('low voltage recovery started')
+
+    cell_info = queue.get()[slot]
+    queue.task_done()
+    while cell_info.fetch('status_text') != StatusStrings.LVC_COMPLETED:
+        log.debug('waiting for low voltage recovery to finish', cell_info=cell_info.to_json())
+        cell_info = queue.get()[slot]
+        queue.task_done()
+
+        status_text = cell_info.fetch('status_text')
+        outcome['status_text'] = status_text
+        outcome['state_text'] = cell_info.fetch('.state')
+
+        if status_text == StatusStrings.NOT_INSERTED:
+            # Break the loop if cell is removed
+            log.error('cell removed')
+            return outcome
+
+        if status_text == StatusStrings.BAD_CELL:
+            # The cell has been marked as bad by the charger
+            log.error('bad cell')
+
+            return outcome
+
+    log.info('low voltage recovery finished', outcome=cell_info.fetch('status_text'))
+
+    outcome['ok'] = True
+
+    return outcome
+
+
+def measure_capacity(sess, slot: Slots, queue: Queue):
+    log.info('performing capacity measurement')
+    outcome = dict(ok=False)
+
+    cell_info = sess.get_cells_info()[slot]
+    status_text = cell_info.fetch('status_text')
+    outcome['status_text'] = status_text
+    outcome['state_text'] = cell_info.fetch('.state')
+
+    if status_text == StatusStrings.NOT_INSERTED:
+        # If cell is not inserted capacity measurement cannot be started
+        log.error('cell not inserted')
+        return outcome
+
+    if status_text == StatusStrings.BAD_CELL:
+        # The cell has been marked as bad by the charger
+        log.error('bad cell')
+        return outcome
+
+    if status_text == StatusStrings.STORE_CHARGED:
+        # The capacity measurement has been completed already, just get the results
+        log.warn('capacity measurement already completed')
+
+    else:
+
+        res = sess.multiple_slots_action([slot], ActionCodes.START_CAPACITY_TEST)
+        if not res:
+            log.error('cannot start capacity measurement')
+            return outcome
+
+        log.info('capacity measurement started')
+
+        cell_info = queue.get()[slot]
+        queue.task_done()
+        while cell_info.fetch('status_text') != StatusStrings.STORE_CHARGED:
+            log.debug('waiting for capacity measurement to finish', cell_info=cell_info.to_json())
+            cell_info = queue.get()[slot]
+            queue.task_done()
+
+            status_text = cell_info.fetch('status_text')
+            outcome['status_text'] = status_text
+            outcome['state_text'] = cell_info.fetch('.state')
+
+            if status_text == StatusStrings.NOT_INSERTED:
+                # Break the loop if cell is removed
+                log.error('cell removed')
+                return outcome
+
+            if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
+                log.error('temperature exceeded limit')
+                return outcome
+
+            if status_text == StatusStrings.BAD_CELL:
+                log.error('bad cell')
+                return outcome
+
+    # Save capacity measurement results
+    outcome['status_text'] = cell_info.fetch('status_text')
+    outcome['capacity_test'] = cell_info.fetch('.capacity_test')
+    outcome['results'] = {
+        'OCV': cell_info.fetch('.voltage'),
+        'capacity': cell_info.fetch('.discharge.capacity'),
+        'IR': cell_info.fetch('.esr.current')
+    }
+    outcome['ok'] = True
+
+    log.info('capacity measurement finished', outcome=outcome)
+    return outcome
+
 
 def megacell_api_session(base_url):
     s = sessions.BaseUrlSession(base_url=base_url)
@@ -271,99 +489,302 @@ def megacell_api_session(base_url):
 
     return None
 
-def main(config):
-    global log
 
-    sess = megacell_api_session(config.baseurl)
-    
-    if config.get_setup:
-        charger_config = sess.get_charger_config()
-        infoset = _megacell_settings_unpack(charger_config)
-        print(infoset.to_json())
-        packed = _megacell_settings_pack(infoset)
-        print('PACKED')
-        print(packed)
-        return
+class WorkflowLog(object):
+    def __init__(self, parent_log, main_event):
+        self._parent_log = parent_log
+        self._main_event = main_event
+        self._main_event['workflow'] = dict(log=[])
 
-    if config.info:
-        # Print cells info
-        cell_data = sess.get_cell_data()
-        print("RAW")
-        print(cell_data)
-        cell_info = _megacell_cell_data_unpack(cell_data)
-        print("PROCESSED")
-        print('\n'.join( [ci.to_json() for ci in cell_info.values()] ))
-        return
+    @property
+    def parent_log(self):
+        return self._parent_log
 
-    if config.action:
+    @property
+    def main_event(self):
+        return self._main_event
 
-        if config.new_cells:
-            new_cell_slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "NEW_CELL_INSERTED" ]
-            log.info('cells with new slots', new_cell_slots=new_cell_slots)
+    def __enter__(self):
+        self.parent_log.append(self.main_event)
+        return self
 
-            slot_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
-            sess.multiple_slots_action(slot_numbers, ActionCodes[config.action])
+    def append(self, e):
+        self.main_event['workflow']['log'].append(e)
 
-        return
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        # The timestamp is set when the workflow finishes
+        self.main_event['ts'] = time.time()
+        pass
 
-    if config.workflow:
-        log = log.bind(mcc_select=config.mcc_select)
 
-        cell_data = sess.get_cell_data()
-        cell_info = _megacell_cell_data_unpack(cell_data)
+class LoadJson(argparse.Action):
+    def __call__(self, parser, args, value, option_string=None):
+        if value[0] == '@':
+            # Load complex value from file and parse it as JSON
+            try:
+                with open(value[1:]) as f:
+                    value = Infoset(data=json.load(f))
+                    args.write_settings = value
+            except Exception as e:
+                log.error('cannot load JSON from file', filename=value[1:], _exc_info=e)
+                sys.exit(1)
+        else:
+            log.fatal('argument must be a filename starting with @')
+            sys.exit(1)
 
-        if config.new_cells:
-            slots = [ slot for slot in cell_info.keys() if cell_info[slot].fetch('status_text') == "NEW_CELL_INSERTED" ]
-            log.info('cells with new slots', new_cell_slots=slots)
+class DefaultWorkflow(Thread):
+    def __init__(self, **kwargs):
+        self._sess = kwargs['api_session']
+        self._config = kwargs['config']
+        self._slot = kwargs['slot']
+        self._queue = kwargs['queue']
+        self._cell_infoset = kwargs['cell_infoset']
+        self._workflow_log = kwargs['workflow_log']
+        super().__init__()
 
-        log.info('launching workflow', slots=slots)
-        for slot in slots:
-            log = log.bind(slot=slot)
-            cell_id = input(f'[{config.mcc_select}/{slot}] Input cell ID > ')
-            log = log.bind(cell_id=cell_id)
+    def run(self):
+        clear_threadlocal()
+        bind_threadlocal(slot=self._slot, cell_id=self._cell_infoset.fetch('.id'))
+        workflow_log = self._workflow_log
 
-            log.info('performing low voltage recovery')
-            lvc_outcome = sess.low_voltage_recovery(slot)
+        log.info('launching workflow')
 
-            if lvc_outcome['cell_bad']:
-                log.warning('cell bad')
-                continue
+        workflow_log.append( dict(action='lvc recovery', event='start', ts=time.time()) )
+        lvc_outcome = low_voltage_recovery(self._sess, self._slot, self._queue)
+        workflow_log.append( dict(action='lvc recovery', event='end', outcome=lvc_outcome, ts=time.time()) )
 
-            mcap_outcome = sess.measure_capacity(slot)
+        if lvc_outcome['ok']:
+            # Take the results from the LVC (if there are any)
+            workflow_log.main_event['results'].update( lvc_outcome.get('results', {}) )
 
-            if mcap_outcome['cell_bad']:
-                log.warning('cell bad')
-                continue
+            workflow_log.append( dict(action='capacity measure', event='start', ts=time.time()) )
+            mcap_outcome = measure_capacity(self._sess, self._slot, self._queue)
+            workflow_log.append( dict(action='capacity measure', event='end', outcome=mcap_outcome, ts=time.time()) )
 
-            mcap_results = mcap_outcome['results']
-            
+            if mcap_outcome['ok']:
+
+                # Take the results from the capacity measurement (if there are any)
+                workflow_log.main_event['results'].update( mcap_outcome.get('results', {}) )
+
+                workflow_log.main_event['setup']['charge_discharge_cycles'] = mcap_outcome['capacity_test']['completed_cycles']
+
+            else:
+                log.warning('failed capacity measurement', outcome=mcap_outcome)
+
+                status_text = mcap_outcome['status_text']
+                if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
+                    self._cell_infoset.put('.props.tags.excessive_heat', True)
+
+        else:
+            log.warning('failed low voltage recovery attempt', outcome=lvc_outcome)
+
+            self._cell_infoset.put('.props.tags.precharge_fail', True)
+
+        log.info('workflow finished')
+
+
+workflows = [ DefaultWorkflow ]
+
 def _config_group(parser):
     group = parser.add_argument_group('megacell charger')
     group.add_argument('--mcc-baseurl', default=os.getenv('MCC_BASEURL', None), help='URL used for the API endpoint of the Megacell Charger')
     group.add_argument('--mcc-select', required=True, default=None, metavar='ID', help='Select the specified charger from the urls file')
     group.add_argument('--mcc-urls-file', default=os.getenv('MCC_URLS_FILE', None), help='The file specifying API endpoint URLs for particular chargers')
 
+def SlotType(s):
+    try:
+        return Slots[s]
+    except KeyError:
+        raise argparse.ArgumentError()
+
+
+def _slot_group(parser):
+    parser.add_argument('-n', '--new-cells', default=False, action='store_true', help='Use all slots which contain new cells')
+    parser.add_argument('slots', nargs='*', type=SlotType, choices=[].extend([ slot for slot in Slots ]), help='Specify slots')
+
+
+def charger(config):
+
+    sess = megacell_api_session(config.mcc_baseurl)
+
+    if config.read_settings:
+        charger_settings = sess.get_charger_settings()
+        print(charger_settings.to_json())
+        return
+
+    if config.write_settings:
+        log.info('configuring charger')
+        sess.set_charger_settings(config.write_settings)
+        return
+
+
+def slot(config):
+
+    sess = megacell_api_session(config.mcc_baseurl)
+
+    if config.new_cells:
+        cells_info = sess.get_cells_info()
+        config.slots = [ slot for slot in cells_info.keys() if cells_info[slot].fetch('status_text') == StatusStrings.NEW_CELL_INSERTED ]
+
+    log.info('selected slots', slots=config.slots)
+
+    if config.action:
+        # Start an action on slots
+        sess.multiple_slots_action(config.slots, ActionCodes[config.action])
+
+    if config.info:
+        # Print cells info
+        cells_info = sess.get_cells_info()
+        print(json.dumps( { slot.name: cells_info[slot].fetch('.') for slot in config.slots } ))
+
+def workflow(config):
+    sess = megacell_api_session(config.mcc_baseurl)
+    charger_settings = sess.get_charger_settings()
+
+    # TODO: Allow to select a workflow in the fututre
+    workflow_class = DefaultWorkflow
+
+    if config.new_cells:
+        cells_info = sess.get_cells_info()
+        config.slots = [ slot for slot in cells_info.keys() if cells_info[slot].fetch('status_text') == StatusStrings.NEW_CELL_INSERTED ]
+
+    log.info('selected slots', slots=config.slots)
+
+    backend = v1.celldb_backends[config.backend](dsn=config.backend_dsn, config=config)
+
+    inserted_cells = dict()
+    cell_data_queues = dict()
+    worker_threads = dict()
+
+    for slot in config.slots:
+        cell_id = input(f'[{config.mcc_select}/{slot.name}] Input cell ID > ')
+
+        cell_infoset = backend.fetch(cell_id)
+
+        if not cell_infoset:
+            if config.autocreate is True:
+                cell_infoset = backend.create(id=cell_id, path=getattr(config, 'path', '/'))
+                backend.put(cell_infoset)
+            else:
+                log.error('cell not found', id=cell_id)
+                sys.exit(1)
+
+        log.info('cell found', id=cell_id)
+
+        inserted_cells[slot] = cell_infoset
+        queue = Queue()
+        cell_data_queues[slot] = queue
+
+        # Create a charger API session and workflow log entry for each thread
+        sess = megacell_api_session(config.mcc_baseurl)
+
+        with WorkflowLog(parent_log=cell_infoset.fetch('.log'), main_event={
+            'type': 'measurement',
+            'equipment': {
+                'model': 'Megacell Charger',
+                'fw': charger_settings.fetch('.fw_version'),
+                'selector': config.mcc_select,
+                'api_baseurl': config.mcc_baseurl,
+                'slot': slot.name,
+            },
+            'setup': {
+                'charger_settings': charger_settings.fetch('.'), # FIXME: There is something wrong with infoset nesting here
+
+                #
+                # Put common capacity test information into the 'setup' key:
+                # - some of this information is taken from the charger configuration fetched before the workflow is started
+                # - some is static and always the same for Megacell Charger
+                #
+                # This is static for Megacell Charger and cannot be configured
+                'charge_current': dict(v=1000, u='mA'),
+                'discharge_current': charger_settings.fetch('.discharge.current.max'),
+            },
+            'results': {}
+        }) as workflow_log:
+
+            worker_threads[slot] = workflow_class(api_session=sess, 
+                config=config, slot=slot, queue=queue, cell_infoset=cell_infoset,
+                workflow_log=workflow_log)
+
+    for slot in config.slots:
+        worker_threads[slot].start()
+
+    while threading.active_count() > 1:
+        log.info('cell state feeder loop', active_threads=threading.active_count())
+
+        # Get the current cell info
+        cells_info = sess.get_cells_info()
+
+        for slot in config.slots:
+            if not worker_threads[slot].is_alive():
+                # Skip threads which have not yet started or have stopped
+                continue
+
+            cell_data_queues[slot].put(cells_info)
+
+        time.sleep(5)
+
+    # Save cell infosets
+    for slot in config.slots:
+        backend.put(inserted_cells[slot])
+
 
 if __name__ == '__main__':
     # Restrict log message to be above selected level
     structlog.configure(
+        processors = [
+            structlog.threadlocal.merge_threadlocal,
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M.%S"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.dev.ConsoleRenderer()
+        ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
     )
 
+    load_plugins()
+
     parser = argparse.ArgumentParser(description='Megacell charger')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    parser.add_argument('--baseurl', help='Megacell charger endpoint URL')
-    parser.add_argument('--info', action='store_true', help='Print current cell data')
-    parser.add_argument('--get-setup', action='store_true', help='Print charger setup')
-    parser.add_argument('--workflow', action='store_true', help='Start workflow for cells already in charger')
-    parser.add_argument('--action', choices=[ac.name for ac in ActionCodes], help="Select the action to be performed by the charger")
-   
-    parser.add_argument('-n', '--new-cells', dest='new_cells', default=False, action='store_true', help='Perform action on all slots which contain new cells')
-    parser.add_argument('slot', nargs='*', action='append', help='Perform action on specified slots')
-
     _config_group(parser)
+
+    # These will be needed only for workflows
+    add_plugin_args(parser)
+    add_backend_selection_args(parser)
+
+    subparsers = parser.add_subparsers(help='commands')
+
+    slot_parser = subparsers.add_parser('slots', help='Slot commands')
+    slot_parser.set_defaults(cmd=slot)
+    slot_parser.add_argument('--action', choices=[ac.name for ac in ActionCodes], help="Select the action to be performed by the charger")
+    slot_parser.add_argument('--info', action='store_true', help='Print current cell data')
+    _slot_group(slot_parser)
+
+    charger_parser = subparsers.add_parser('charger', help='Charger commands')
+    charger_parser.set_defaults(cmd=charger)
+    charger_parser.add_argument('--read-settings', action='store_true', help='Print charger settings')
+    charger_parser.add_argument('--write-settings', action=LoadJson, help='Set new charger settings')
+
+    workflow_parser = subparsers.add_parser('workflow', help='Workflow commands')
+    workflow_parser.set_defaults(cmd=workflow)
+
+    workflow_parser.add_argument('--workflow', action='store_true', help='Start workflow for cells already in charger')
+    _slot_group(workflow_parser)
+    workflow_parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are selected but not found')
+    workflow_parser.add_argument('--path', default=os.getenv('CELLDB_PATH'), help='Set cell path')
+
+
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only:
+    # - state var plugins
+    # - celldb backend plugins
+    included_plugins = v1.state_vars.keys() | v1.celldb_backends.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](parser)
 
     args = parser.parse_args()
 
@@ -372,5 +793,11 @@ if __name__ == '__main__':
 
     log.debug('config', args=args)
 
-    main(config=args)
+    # Setup log with charger config
+    log = log.bind(mcc_select=args.mcc_select)
+
+    if hasattr(args, 'cmd'):
+        args.cmd(config=args)
+
+    #main(config=args)
 
