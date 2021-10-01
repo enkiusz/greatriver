@@ -17,6 +17,7 @@ from secondlife.plugins.json_files_backend import JsonFiles
 import tempfile
 import os
 
+
 class TestJsonFilesBackend(unittest.TestCase):
     def setUp(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -40,6 +41,7 @@ class TestJsonFilesBackend(unittest.TestCase):
     def test_put(self):
         pass
 
+
 if __name__ == '__main__':
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
@@ -47,5 +49,5 @@ if __name__ == '__main__':
     )
 
     load_plugins()
-    
+
     unittest.main()

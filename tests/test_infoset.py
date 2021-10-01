@@ -13,6 +13,7 @@ import unittest
 
 from secondlife.infoset import Infoset
 
+
 class TestInfoset(unittest.TestCase):
 
     def test_put_fetch(self):
@@ -90,9 +91,10 @@ class TestInfoset(unittest.TestCase):
 
         cell_log = infoset.fetch('.log')
 
-        cell_log.append( dict(type='test-event') )
+        cell_log.append(dict(type='test-event'))
 
         assert(infoset.fetch('.log')[1]['type'] == 'test-event')
+
 
 if __name__ == '__main__':
     structlog.configure(
