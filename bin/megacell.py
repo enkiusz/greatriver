@@ -24,6 +24,7 @@ from threading import Thread
 import threading
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from structlog.contextvars import bind_contextvars, clear_contextvars
+import asciitable
 
 from requests_toolbelt import sessions
 
@@ -31,6 +32,8 @@ from secondlife.infoset import Infoset
 from secondlife.plugins.api import v1, load_plugins
 from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.cli.utils import perform_measurement
+
+from secondlife.cli.utils import CompileJQAndAppend
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -53,6 +56,7 @@ class StatusStrings(str, Enum):
     NOT_INSERTED = 'Not Inserted'
     NEW_CELL_INSERTED = 'New cell inserted'
 
+    LVC_START_CHARGING = 'LVC start charging'
     LVC_CHARGING = 'LVC Charging'
     LVC_CHARGED = 'LVC Charged'
     LVC_CELL_REST = 'Cell rest 5 Min'
@@ -100,9 +104,10 @@ class StateStrings(str, Enum):
     # Seen together with 'status': 'Bad Cell' when capacity is less than minimum during capacity measurement
     LOW_CAPACITY_ERROR = 'Low capacity Error'
 
-    # Seen together with 'status': 'Bad Cell' when:
-    # - max LVC time elapses
-    # - max volage drop after LVC is exceeded
+    # Seen together with 'status': 'Bad Cell' when voltage drops more than maximum during low voltage recovery
+    HIGH_VOLT_DROP_ERROR = 'High volt drop Error'
+
+    # Seen together with 'status': 'Bad Cell' when max LVC time elapses
     LVC_RECOVERY_FAILED = 'LVC recovery failed'
 
 
@@ -520,10 +525,10 @@ class WorkflowLog(object):
 
     def append(self, e):
         self.main_event['workflow']['log'].append(e)
+        # The main event timestamp reflects the last added worklog entry
+        self.main_event['ts'] = time.time()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        # The timestamp is set when the workflow finishes
-        self.main_event['ts'] = time.time()
         pass
 
 
@@ -579,6 +584,9 @@ class DefaultWorkflow(Thread):
 
                 workflow_log.main_event['setup']['charge_discharge_cycles'] = mcap_outcome['capacity_test']['completed_cycles']
 
+                # Charge up to full
+
+
             else:
                 log.warning('failed capacity measurement', outcome=mcap_outcome)
 
@@ -612,7 +620,8 @@ def SlotType(s):
 
 
 def _slot_group(parser):
-    parser.add_argument('-n', '--new-cells', default=False, action='store_true', help='Use all slots which contain new cells')
+    parser.add_argument('--new-cells', default=False, action='store_true', help='Select slots which contain new cells')
+    parser.add_argument('--all-slots', default=False, action='store_true', help='Select all slots in the charger')
     parser.add_argument('slots', nargs='*', type=SlotType, choices=[].extend([ slot for slot in Slots ]), help='Specify slots')
 
 
@@ -635,6 +644,9 @@ def slot(config):
 
     sess = megacell_api_session(config.mcc_baseurl)
 
+    if config.all_slots:
+        config.slots = Slots
+
     if config.new_cells:
         cells_info = sess.get_cells_info()
         config.slots = [ slot for slot in cells_info.keys() if cells_info[slot].fetch('status_text') == StatusStrings.NEW_CELL_INSERTED ]
@@ -648,7 +660,25 @@ def slot(config):
     if config.info:
         # Print cells info
         cells_info = sess.get_cells_info()
-        print(json.dumps( { slot.name: cells_info[slot].fetch('.') for slot in config.slots } ))
+
+        if len(config.infoset_queries) > 0:
+            results = dict()
+            for slot in config.slots:
+                results[slot] = list()
+                json_text = cells_info[slot].to_json()
+
+                for query in config.infoset_queries:
+
+                    query_result = query.input(text=json_text).text()
+                    results[slot].append( query_result )
+                    log.debug('jq query result', slot=slot, result=query_result, query=query)
+
+            asciitable.write([ [slot] + [ result for result in results[slot] ] for slot in config.slots ],
+                names=['Slot'] + [ query.program_string for query in config.infoset_queries ],
+                formats={ 'Slot': '%s' },
+                Writer=asciitable.FixedWidth)
+        else:
+            print(json.dumps( { slot.name: cells_info[slot].fetch('.') for slot in config.slots } ))
 
 
 def workflow(config):
@@ -657,6 +687,9 @@ def workflow(config):
 
     # TODO: Allow to select a workflow in the fututre
     workflow_class = DefaultWorkflow
+
+    if config.all_slots:
+        config.slots = Slots
 
     if config.new_cells:
         cells_info = sess.get_cells_info()
@@ -777,6 +810,9 @@ if __name__ == '__main__':
     slot_parser.add_argument('--action', choices=[ac.name for ac in ActionCodes],
         help="Select the action to be performed by the charger")
     slot_parser.add_argument('--info', action='store_true', help='Print current cell data')
+    slot_parser.add_argument('--infoset-query', default=[], dest='infoset_queries', action=CompileJQAndAppend,
+        help='Apply a JQ query to the infoset and print the result, use https://stedolan.github.io/jq/ syntax.')
+
     _slot_group(slot_parser)
 
     charger_parser = subparsers.add_parser('charger', help='Charger commands')
