@@ -101,7 +101,8 @@ class JsonFiles(CellDB):
             return None
 
     def put(self, infoset: Infoset):
-        
+        self.log.info('storing cell', cell_id=infoset.fetch('.id'), path=infoset.fetch('.path'))
+
         if infoset.fetch('.path') is not None and infoset.fetch('.path') != '/':
             path = infoset.fetch('.path').lstrip('/')
         else:
@@ -111,6 +112,7 @@ class JsonFiles(CellDB):
 
         location.mkdir(parents=True, exist_ok=True)
 
+        self.log.debug('cell location', location=location)
         with open(location.joinpath('meta.json'), 'w') as f:
             f.write(f"V0\n")
             f.write(json.dumps(infoset.fetch('.props')))
