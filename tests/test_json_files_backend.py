@@ -25,17 +25,17 @@ class TestJsonFilesBackend(unittest.TestCase):
             self.backend.init()
 
     def test_create(self):
-        infoset = self.backend.create(id='FAKE~1')
+        infoset = self.backend.create(id='FAKE~1', path='/')
 
         self.assertEqual(infoset.fetch('.id'), 'FAKE~1')
-        self.assertEqual(infoset.fetch('.path'), None)
+        self.assertEqual(infoset.fetch('.path'), '/')
         first_event = infoset.fetch('.log')[0]
 
         # We don't want to fiddle with checking time
         self.assertIn('ts', first_event)
         first_event.pop('ts')
 
-        self.assertEqual(first_event, {"type": "lifecycle", "event": "entry-created"})
+        self.assertEqual(first_event, dict(type='lifecycle', event='created', path='/'))
 
     def test_put(self):
         pass

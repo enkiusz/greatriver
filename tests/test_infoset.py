@@ -83,6 +83,17 @@ class TestInfoset(unittest.TestCase):
         infoset.put('.embedded.key3.inside', 'LOOK INSIDE')
         self.assertEqual(infoset.fetch('.embedded.key3.inside'), 'LOOK INSIDE')
 
+    def test_internal_reference(self):
+
+        infoset = Infoset()
+        infoset.put('.log', [ dict(type='lifecycle') ])
+
+        cell_log = infoset.fetch('.log')
+
+        cell_log.append( dict(type='test-event') )
+
+        assert(infoset.fetch('.log')[1]['type'] == 'test-event')
+
 if __name__ == '__main__':
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
