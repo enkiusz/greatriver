@@ -6,6 +6,7 @@ import time
 
 log = structlog.get_logger()
 
+
 class CellDB(object):
     def __init__(self):
         pass
@@ -31,5 +32,5 @@ class CellDB(object):
     def put(self, infoset: Infoset):
         raise NotImplementedError()
 
-    def find(self) -> Infoset: # Generator
+    def find(self) -> Infoset:  # Generator
         raise NotImplementedError()

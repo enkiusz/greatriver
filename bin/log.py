@@ -23,11 +23,10 @@ from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
-                   sorted(getattr(logging, '_levelToName', None)
-                          or logging._levelNames)
-                   if getattr(v, "real", 0)]
+                   sorted(getattr(logging, '_levelToName', None) or logging._levelNames) if getattr(v, "real", 0)]
 
 log = structlog.get_logger()
+
 
 def main(config):
 
@@ -65,7 +64,7 @@ def main(config):
                         'mtime': extra_filename.stat().st_mtime
                     }
                 },
-                'ref': None, # Content is directly stored, not referenced
+                'ref': None,  # Content is directly stored, not referenced
                 'content': extra_filename.read_bytes()
             })
 
@@ -77,11 +76,12 @@ def main(config):
             perform_measurement(infoset=infoset, codeword=cw, config=config)
 
         # Cleanup tags where value is false
-        tags_to_remove = [ tag for (tag,v) in infoset.fetch('.props.tags', {}).items() if v == False ]
-        for tag in tags_to_remove:                
+        tags_to_remove = [ tag for (tag, v) in infoset.fetch('.props.tags', {}).items() if v is False ]
+        for tag in tags_to_remove:
             del infoset.fetch('.props.tags')[tag]
 
         backend.put(infoset)
+
 
 def store_as_property(property_path):
     class customAction(argparse.Action):
@@ -89,11 +89,13 @@ def store_as_property(property_path):
             args.properties.append( (property_path, values) )
     return customAction
 
+
 def add_as_tag(tags_path, value):
     class customAction(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
             args.properties.append( (f'{tags_path}.{values}', value) )
     return customAction
+
 
 def add_property(props_path):
     class customAction(argparse.Action):
@@ -113,6 +115,7 @@ def add_property(props_path):
             args.properties.append( (f'{props_path}.{name}', value) )
     return customAction
 
+
 if __name__ == '__main__':
     # Restrict log message to be above selected level
     structlog.configure(
@@ -128,24 +131,31 @@ if __name__ == '__main__':
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 
-    parser.add_argument('--pause-before-cell', default=False, action='store_true', help='Pause for a keypress before each cell')
-    parser.add_argument('--pause-before-measure', default=False, action='store_true', help='Pause for a keypress before each measurement')
+    parser.add_argument('--pause-before-cell', default=False, action='store_true',
+        help='Pause for a keypress before each cell')
+    parser.add_argument('--pause-before-measure', default=False, action='store_true',
+        help='Pause for a keypress before each measurement')
 
     # Cell nameplate information
     group = parser.add_argument_group('update cell properties')
     group.add_argument('-b', '--brand', action=store_as_property('.props.brand'), help='Set cell brand')
     group.add_argument('-m', '--model', action=store_as_property('.props.model'), help='Set cell model')
-    group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'), help='Set cell nominal capacity in mAh')
+    group.add_argument('-c', '--capacity', action=store_as_property('.props.capacity.nom'),
+        help='Set cell nominal capacity in mAh')
 
     group.add_argument('--path', default=os.getenv('CELLDB_PATH'), help='Set cell path')
-    group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'), help='Set a property for cells, use @file.json to load a complex property value')
+    group.add_argument('-p', '--property', nargs=2, dest='properties', default=[], action=add_property('.props'),
+        help='Set a property for cells, use @file.json to load a complex property value')
     group.add_argument('--add-tag', action=add_as_tag('.props.tags', value=True), help='Add a tag')
     group.add_argument('--del-tag', action=add_as_tag('.props.tags', value=False), help='Remove a tag')
-    group.add_argument('--extra-file', default=[], dest='extra_files', action='append', help='Import extra data from a file')
+    group.add_argument('--extra-file', default=[], dest='extra_files', action='append',
+        help='Import extra data from a file')
 
     group = parser.add_argument_group('update cell log')
-    group.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append', dest='measurements', help='Take measurements with the specified codewords')
-    group.add_argument('--event', dest='events', metavar='JSON', default=[], action='append', help='Store arbitrary events in the log')
+    group.add_argument('-M', '--measure', choices=v1.measurements.keys(), default=[], action='append',
+        dest='measurements', help='Take measurements with the specified codewords')
+    group.add_argument('--event', dest='events', metavar='JSON', default=[], action='append',
+        help='Store arbitrary events in the log')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - measurement plugins

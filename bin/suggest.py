@@ -26,11 +26,10 @@ from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
-                   sorted(getattr(logging, '_levelToName', None)
-                          or logging._levelNames)
-                   if getattr(v, "real", 0)]
+                   sorted(getattr(logging, '_levelToName', None) or logging._levelNames) if getattr(v, "real", 0)]
 
 log = structlog.get_logger()
+
 
 def main(config):
 
@@ -56,6 +55,7 @@ def main(config):
 
     elif config.model is not None:
         print('\n'.join([ name for name in cache_data['models'] if name.startswith(config.model)]) )
+
 
 if __name__ == '__main__':
     # Restrict log message to be above selected level

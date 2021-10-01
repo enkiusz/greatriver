@@ -17,9 +17,7 @@ import jq
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
-                   sorted(getattr(logging, '_levelToName', None)
-                          or logging._levelNames)
-                   if getattr(v, "real", 0)]
+                   sorted(getattr(logging, '_levelToName', None) or logging._levelNames)if getattr(v, "real", 0)]
 
 log = structlog.get_logger()
 
@@ -29,7 +27,7 @@ from secondlife.plugins.api import v1, load_plugins
 
 
 def main(config):
-    
+
     if len(config.reports) == 0:
         log.info('nothing to do')
         return
@@ -74,7 +72,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.reports is None: # Set default reports only if none provided
+    if args.reports is None:  # Set default reports only if none provided
         args.reports = [ rep.codeword for rep in v1.reports.values() if rep.default_enable ]
 
     # Restrict log message to be above selected level
@@ -83,4 +81,3 @@ if __name__ == "__main__":
     log.debug('config', args=args)
 
     main(config=args)
-

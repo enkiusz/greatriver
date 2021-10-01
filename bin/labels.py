@@ -26,10 +26,12 @@ from secondlife.cli.utils import generate_id
 
 log = get_logger()
 
+
 def generate_code128(txt, width=566, height=60):
     cb128 = CandyBar128('', width, height)
     code = cb128.generate_barcode_with_contents(f'{txt}')
     return code
+
 
 def format_digits(s):
     out = str()
@@ -45,21 +47,21 @@ def format_digits(s):
 def generate_label(id1, id2=None):
     # 62x29 -> 696 x  271 usable area
     # 17x54 -> 165 x  566
-    label = Image.new(mode='RGB', size=(566, 165), color=(255,255,255))
+    label = Image.new(mode='RGB', size=(566, 165), color=(255, 255, 255))
     ctx = ImageDraw.Draw(label)
     try:
         font = ImageFont.truetype(font='Courier New', size=40)
-    except:
+    except Excepton as e:
         font = ImageFont.truetype(font='UbuntuMono-R', size=40)
 
     gap = 5
     x = 0
     y = 30
-    
+
     id = id1
     code = generate_code128(id)
     code_img = Image.open(io.BytesIO(code))
-    label.paste(code_img, box=(x,y))
+    label.paste(code_img, box=(x, y))
     y += code_img.size[1] + gap
 
     (code, num) = id.split('~')
@@ -68,28 +70,28 @@ def generate_label(id1, id2=None):
     # get the line size
     text_width, text_height = font.getsize(id_text)
 
-    ctx.text((label.size[0]/2,y), id_text, font=font, anchor='ma', fill='black')
-    y += text_height + gap*2
+    ctx.text((label.size[0] / 2, y), id_text, font=font, anchor='ma', fill='black')
+    y += text_height + gap * 2
 
     if id2:
         ctx.line((0, y, label.size[0], y), fill='grey')
 
-        y += gap*2
+        y += gap * 2
 
         id = id2
         code = generate_code128(id)
         code_img = Image.open(io.BytesIO(code))
-        label.paste(code_img, box=(x,y))
+        label.paste(code_img, box=(x, y))
         y += code_img.size[1] + gap
-
 
         # get the line size
         text_width, text_height = font.getsize(id)
 
-        ctx.text((label.size[0]/2,y), id, font=font, anchor='ma', fill='black')
+        ctx.text((label.size[0] / 2, y), id, font=font, anchor='ma', fill='black')
         y += text_height + gap
 
     return label
+
 
 def main(config, log):
 
@@ -122,15 +124,17 @@ def main(config, log):
 
     if config.printer_pretend:
         for (i, image) in enumerate(labels):
-            filename=f'labels_{i}.png'
+            filename = f'labels_{i}.png'
             log.info('saving bitmap', file=filename)
             image.save(filename)
     else:
         qlr = BrotherQLRaster(config.printer_model)
         instructions = brother_ql.conversion.convert(qlr=qlr, images=labels, label=config.printer_label)
-        brother_ql.backends.helpers.send(instructions=instructions, printer_identifier=config.printer_id, backend_identifier=config.printer_backend, blocking=True)
-        
+        brother_ql.backends.helpers.send(instructions=instructions, printer_identifier=config.printer_id,
+            backend_identifier=config.printer_backend, blocking=True)
+
     print('\n'.join(ids_processed))
+
 
 if __name__ == "__main__":
 
@@ -138,13 +142,13 @@ if __name__ == "__main__":
     parser.add_argument('-g', metavar='N', type=int, default=0, help='Number of cell identifiers to generate')
     parser.add_argument('--prefix', default='C', help='Prefix before the tilde character ~')
     parser.add_argument('--size', type=int, default=10, help='Number of digits after the tilde character ~')
-    parser.add_argument('--printer-model', metavar='MODEL', default=os.getenv('BROTHER_QL_MODEL'), 
+    parser.add_argument('--printer-model', metavar='MODEL', default=os.getenv('BROTHER_QL_MODEL'),
         choices=brother_ql.devicedependent.models, help='Select the printer model for brother_ql')
     parser.add_argument('--printer-id', metavar='PRINTER_ID', default=os.getenv('BROTHER_QL_PRINTER'),
         help='Identifier string specifying the printer. If not specified, selects the first detected device.')
-    parser.add_argument('--printer-backend', metavar='BACKEND', default=os.getenv('BROTHER_QL_BACKEND', 'pyusb'), 
+    parser.add_argument('--printer-backend', metavar='BACKEND', default=os.getenv('BROTHER_QL_BACKEND', 'pyusb'),
         choices=brother_ql.backends.available_backends, help='Select the printer backend for brother_ql')
-    parser.add_argument('--printer-label', default=os.getenv('BROTHER_QL_LABEL'), 
+    parser.add_argument('--printer-label', default=os.getenv('BROTHER_QL_LABEL'),
         choices=brother_ql.devicedependent.label_sizes, help='Select label size for brother_ql')
     parser.add_argument('--printer-pretend', action='store_true', default=False, help='Just pretend to print labels')
     parser.add_argument('identifiers', nargs='*', default=['-'], help='Cell identifiers, read from stdin by default')
@@ -153,5 +157,3 @@ if __name__ == "__main__":
     log.debug('config', args=args)
 
     main(config=args, log=log)
-
-

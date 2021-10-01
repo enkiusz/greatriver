@@ -13,7 +13,8 @@ import argparse
 config = ConfigParser()
 
 argparser = argparse.ArgumentParser(description="Search for a category")
-argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
+argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'),
+    help='Configuration file location')
 argparser.add_argument('query', metavar='QUERY', nargs='*', help='The query string to search')
 
 args = argparser.parse_args()
@@ -32,7 +33,7 @@ if not os.path.isfile(config_filename):
 
         # Create a default config if config file doesn't exist
         config['DEFAULT']['country_id'] = '1'
-        config['DEFAULT']['cache_location'] = os.path.join(xdg_cache_home, 'allegro-prodsearch', 'country-%d' % (int(config['DEFAULT']['country_id'])) )
+        config['DEFAULT']['cache_location'] = os.path.join(xdg_cache_home, 'allegro-prodsearch', 'country-%d' % (int(config['DEFAULT']['country_id'])) )  # noqa
         config['DEFAULT']['wsdl'] = 'https://webapi.allegro.pl/service.php?wsdl'
         config.write(f)
 
@@ -57,14 +58,14 @@ log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_
 
 categories = None
 
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))  # noqa
 
 # Check if we can load from cache
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
         categories = pickle.load(f)
 else:
-    log.warn("Cache file '{}' for version '{}' could not be found, requesting categories tree from server".format(cache_filename, cat_version))
+    log.warn("Cache file '{}' for version '{}' could not be found, requesting categories tree from server".format(cache_filename, cat_version))  # noqa
 
     all_status = client.service.doQueryAllSysStatus(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key)
 
@@ -82,7 +83,7 @@ else:
     #   verKey = 1500555571
     cats_version = sys_status.catsVersion
 
-    cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-%s.pickle' % (cats_version))
+    cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-%s.pickle' % (cats_version))  # noqa
 
     # Download categories
     categories_reply = client.service.doGetCatsData(countryId=config['DEFAULT']['country_id'], webapiKey=webapi_key, localVersion=0)
@@ -94,7 +95,7 @@ else:
         # https://stackoverflow.com/a/39286285
         categories.update( {
             cat['catId']: { key: value for key, value in cat.__dict__.items() if not key.startswith("__") }
-            } )
+        } )
 
     # Create the cache dir and pickle the categories tree there
     os.makedirs(os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id'])), exist_ok=True)
@@ -104,10 +105,12 @@ else:
 
 log.info("Loaded %d categories" % len(categories.keys()))
 
+
 def path(categories, cat_id):
     if cat_id == 0:
         return "/Allegro"
     return path(categories, categories[cat_id]['catParent']) + '/' + categories[cat_id]['catName']
+
 
 results = []
 for cat_id, cat in categories.items():
@@ -117,5 +120,4 @@ for cat_id, cat in categories.items():
             results.append(dict(id=cat_id, path=cat_path))
 
 for res in sorted(results, key=lambda r: r["path"]):
-        print("%-7d %s" % (res["id"], res["path"]))
-
+    print("%-7d %s" % (res["id"], res["path"]))

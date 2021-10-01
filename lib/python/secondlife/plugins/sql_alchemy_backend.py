@@ -16,6 +16,8 @@ from secondlife.celldb import CellDB
 log = get_logger()
 
 Base = declarative_base()
+
+
 class Cell(Base):
     __tablename__ = 'cells'
 
@@ -28,6 +30,7 @@ class Cell(Base):
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.id} container_cell_id={self.container_cell_id} props={self.props}>'
+
 
 class LogEntry(Base):
     __tablename__ = 'log_entries'
@@ -42,6 +45,7 @@ class LogEntry(Base):
     def __repr__(self):
         return f'<{self.__class__.__name__} cell_id={self.cell_id} idx={self.idx} ts={self.ts} entry={self.entry}>'
 
+
 class Extra(Base):
     __tablename__ = 'extras'
 
@@ -50,11 +54,12 @@ class Extra(Base):
     props = Column(JSON)
     ref = Column(String)
     content = Column(LargeBinary)
-    
+
     cell = relationship('Cell', back_populates='extras')
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} cell_id={self.cell_id} name={self.name} props={self.props} ref={self.ref} content={len(self.content)} bytes>'
+        return f'<{self.__class__.__name__} cell_id={self.cell_id} name={self.name} props={self.props} ref={self.ref} content={len(self.content)} bytes>'  # noqa
+
 
 class SQLAlchemy(CellDB):
     def __init__(self, dsn=None, **kwargs):
@@ -74,7 +79,7 @@ class SQLAlchemy(CellDB):
         log.info('creating celldb', engine=self.engine)
 
         Base.metadata.create_all(self.engine)
-    
+
     def _build_infoset(self, cell, log_entries: list, extras: list) -> Infoset:
         log.debug('building infoset', cell_row=cell, log_entries=log_entries, extras=extras)
         id = cell.id
@@ -86,7 +91,6 @@ class SQLAlchemy(CellDB):
 
         infoset.put('.props', deepcopy(cell.props))
 
-
         if hasattr(self, '_container_cache'):
 
             # Synthesize path from cache
@@ -96,7 +100,7 @@ class SQLAlchemy(CellDB):
                 while p is not None:
                     parts.append(p)
                     p = self._container_cache[p]
-                
+
                 infoset.put('.path', '/'.join(parts))
             else:
                 infoset.put('.path', '/')
@@ -106,11 +110,11 @@ class SQLAlchemy(CellDB):
             # Synthesize path from database
             if cell.container_cell_id is not None:
                 parts = [ '' ]
-                p = self.session.execute( select(Cell).where(Cell.id==cell.container_cell_id)).first()[0]
+                p = self.session.execute( select(Cell).where(Cell.id == cell.container_cell_id)).first()[0]
                 while p.container_cell_id is not None:
                     parts.append(p.continer_cell_id)
                     p = self.session.execute( select(Cell).where(Cell.id == p.container_cell_id)).first()[0]
-                
+
                 infoset.put('.path', '/'.join(parts))
             else:
                 infoset.put('.path', '/')
@@ -139,7 +143,7 @@ class SQLAlchemy(CellDB):
     def fetch(self, id: str) -> Infoset:
         log.info('fetching infoset', id=id)
 
-        cell = self.session.execute( select(Cell).where(Cell.id==id) ).first()
+        cell = self.session.execute( select(Cell).where(Cell.id == id) ).first()
         if cell is None:
             return None
         cell = cell[0]
@@ -171,7 +175,7 @@ class SQLAlchemy(CellDB):
         self.session.flush()
         self.session.commit()
 
-    def find(self) -> Infoset: # Generator
+    def find(self) -> Infoset:
 
         # FIXME:
         # A better way needs to be developed for handling the task of quickly loading all information from the DB.
@@ -215,5 +219,6 @@ class SQLAlchemy(CellDB):
         for cell in self.session.execute( select(Cell) ):
             cell = cell[0]
             yield self._build_infoset(cell, self._logs_cache[cell.id], self._extras_cache[cell.id])
+
 
 v1.register_celldb_backend('sql-alchemy', SQLAlchemy)

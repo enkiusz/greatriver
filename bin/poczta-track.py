@@ -15,9 +15,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-##
-## Login and get version number
-####
+#
+# Login and get version number
+#
 pp_url = 'https://tt.poczta-polska.pl/Sledzenie/services/Sledzenie?wsdl'
 log.info("Creating client using WSDL URL '{}'".format(pp_url))
 
@@ -37,4 +37,3 @@ log.debug("API version: '{}'".format(api_version))
 tracking_no = sys.argv[1]
 status = conn.service.sprawdzPrzesylkePl(tracking_no)
 print("Status of parcel '{}' is {}".format(tracking_no, status))
-

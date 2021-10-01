@@ -2,6 +2,7 @@
 
 import json
 
+
 class Infoset(object):
     def __init__(self, data=None, **kwargs):
         self._data = data or {}
@@ -18,7 +19,7 @@ class Infoset(object):
                     paths.extend( [ f'{path}.{d}.{p}'.replace('..', '.').rstrip('.') for p in v.paths() ] )
                 else:
                     paths.extend( self.paths(f'{path}.{d}'.replace('..', '.').rstrip('.')) )
-        except AttributeError: # Pass if we've reached a level we can't enumerate anymore
+        except AttributeError:  # Pass if we've reached a level we can't enumerate anymore
             pass
         return paths
 
@@ -31,10 +32,10 @@ class Infoset(object):
                 return r._find('.'.join(path), mkpath=mkpath)
 
             item = path.pop(0)
-            if not item: # Skip empty path elements
+            if not item:  # Skip empty path elements
                 continue
 
-            if (not item in r) and mkpath:
+            if (item not in r) and mkpath:
                 r[item] = {}
 
             r = r[item]
@@ -62,6 +63,7 @@ class Infoset(object):
 
     def to_json(self, **kwargs):
         return json.dumps(self, default=_infoset_encoder, **kwargs)
+
 
 def _infoset_encoder(v):
     if hasattr(v, 'fetch'):

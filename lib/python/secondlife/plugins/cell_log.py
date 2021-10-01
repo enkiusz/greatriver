@@ -9,6 +9,8 @@ import time
 
 # We care only about hour level accuracy
 _attrs = ['years', 'months', 'days', 'hours']
+
+
 def _since_now(ts):
     if ts is None:
         return 'NO TIMESTAMP'
@@ -18,15 +20,17 @@ def _since_now(ts):
         delta = relativedelta(seconds=ts - time.time())
         return ' '.join([ '%d %ss' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1])
                 for attr in _attrs if getattr(delta, attr) ])
-    except:
+    except Exception as e:
         return ''
+
 
 def _format_results(results):
     r = []
-    for (name,value) in results.items():
+    for (name, value) in results.items():
         r.append(f"{name}={value['v']}{value.get('u', value.get('unit'))}")
-    
+
     return ' '.join(r)
+
 
 class LogReport(object):
 
@@ -40,7 +44,7 @@ class LogReport(object):
         log.debug('processing cell')
 
         measurement_log = infoset.fetch('.log')
-    
+
         log.debug('measurement log', log=measurement_log)
 
         self.cells[infoset.fetch('.id')] = [
@@ -61,5 +65,6 @@ class LogReport(object):
                     print("LOG EMPTY")
         else:
             self.log.warning('no data')
+
 
 v1.register_report(v1.Report('log', LogReport))

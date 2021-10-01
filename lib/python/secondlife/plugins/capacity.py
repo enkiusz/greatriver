@@ -4,6 +4,7 @@ from secondlife.plugins.api import v1
 from structlog import get_logger
 import asciitable
 
+
 class CapacityReport(object):
 
     def __init__(self, **kwargs):
@@ -33,6 +34,7 @@ class CapacityReport(object):
         else:
             log.error('unknown report format', format=format)
 
+
 class UsableCapacity(object):
     def __init__(self, **kwargs):
         self._cell = kwargs['cell']
@@ -41,10 +43,11 @@ class UsableCapacity(object):
         try:
             measurement_log = self._cell.fetch('.log')
 
-            capacity_measurement = next(filter(lambda m: 'capacity' in m.get('results',{}), measurement_log))
+            capacity_measurement = next(filter(lambda m: 'capacity' in m.get('results', {}), measurement_log))
             return capacity_measurement['results']['capacity']
         except StopIteration:
             return None
+
 
 v1.register_state_var('usable_capacity', UsableCapacity)
 v1.register_report(v1.Report('capacity', CapacityReport))

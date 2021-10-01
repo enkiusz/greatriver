@@ -15,15 +15,14 @@ log = structlog.get_logger()
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model': lambda infoset: not (
-        infoset.fetch('.props.brand') is None and 
-        infoset.fetch('.props.model') is None and
-        infoset.fetch('.props.tags.noname') is not True
+        infoset.fetch('.props.brand') is None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.noname') is not True
     ),
     'only_brand': lambda infoset: not (
-        infoset.fetch('.props.brand') is not None and
-        infoset.fetch('.props.model') is None
+        infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None
     )
 }
+
+
 class CheckerReport(object):
 
     def __init__(self, **kwargs):
@@ -33,8 +32,7 @@ class CheckerReport(object):
 
     def process_cell(self, infoset):
         cell_id = infoset.fetch('.id')
-        log = self.log.bind(id=cell_id
-        )
+        log = self.log.bind(id=cell_id)
         log.debug('processing cell')
 
         for codeword in self.config.checker_codewords:
@@ -51,13 +49,15 @@ class CheckerReport(object):
             return
 
         asciitable.write([ (id, ','.join(self.cells[id])) for id in sorted(self.cells.keys()) ],
-            names=['Cell ID', 'Failed checks'],
-                formats={ 'Cell ID': '%s', 'Failed checks': '%s' },
-                Writer=asciitable.FixedWidth)
+            names=['Cell ID', 'Failed checks'], formats={ 'Cell ID': '%s', 'Failed checks': '%s' },
+            Writer=asciitable.FixedWidth)
+
 
 def _config_group(parser):
     group = parser.add_argument_group('checker report')
-    group.add_argument('--checker-codeword', default=sorted(checks.keys()), dest='checker_codewords', action='append', help='Only perform selected checks')
+    group.add_argument('--checker-codeword', default=sorted(checks.keys()), dest='checker_codewords', action='append',
+        help='Only perform selected checks')
+
 
 v1.register_report(v1.Report('checker', CheckerReport))
 v1.register_config_group('checker', _config_group)

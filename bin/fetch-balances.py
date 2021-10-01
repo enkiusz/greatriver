@@ -20,8 +20,7 @@ from bankster.plugins.pl_bosbank24 import PLBosbank
 from bankster.plugins.pl_starfunds import PLStarfunds
 from bankster.plugins.pl_mbank import PLMBank
 
-bank_plugins = dict(PLBosbank=PLBosbank, PLGenerali=PLGenerali, 
-PLNestbank=PLNestbank, PLObligacjeSkarbowe=PLObligacjeSkarbowe, 
+bank_plugins = dict(PLBosbank=PLBosbank, PLGenerali=PLGenerali, PLNestbank=PLNestbank, PLObligacjeSkarbowe=PLObligacjeSkarbowe,
 PLIdeabank=PLIdeabank, PLStarfunds=PLStarfunds, PLMBank=PLMBank)
 
 structlog.configure(
@@ -69,7 +68,7 @@ else:
 if len(credstores) > 1 and args.single_password:
     # Try to unlock using a common secret
     unlock_secret = getpass.getpass("Enter password to unlock *ALL* Keepass databases: ")
-else: 
+else:
     unlock_secret = None
 
 # Unlock all keystores and keep only those which unlocked successfuly
@@ -111,12 +110,12 @@ for c in credstores:
                         # Convert currency to PLN if needed
                         #
 
-                        conversion_result = requests.get('https://api.ratesapi.io/api/latest', 
-                                params=dict(base=currency, symbols='PLN') ).json()
+                        conversion_result = requests.get('https://api.ratesapi.io/api/latest',
+                            params=dict(base=currency, symbols='PLN') ).json()
 
                         conversion_rate = conversion_result['rates']['PLN']
                         amount *= conversion_rate
-                        
+
                 rows.append( [data['name'], bag['description'], amount] )
 
 rows.append(['Total', '', ''])

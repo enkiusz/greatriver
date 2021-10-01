@@ -10,6 +10,7 @@ from structlog import get_logger
 
 log = get_logger()
 
+
 class RC3563Meter(object):
 
     def __init__(self, **kwargs):
@@ -18,12 +19,12 @@ class RC3563Meter(object):
     def _parse_rc3546_packet(self, pkt):
         global log
 
-        log.debug('pkt', pkt=pkt)        
-        
+        log.debug('pkt', pkt=pkt)
+
         status_disp, r_range_code, r_disp, sign_code, v_range_code, v_disp = struct.unpack('BB3s BB3s', pkt)
         result = {}
 
-        #print(f"status_disp='{status_disp:#x}'")
+        # print(f"status_disp='{status_disp:#x}'")
 
         r_disp = struct.unpack('I', r_disp + b'\x00')[0]
         resistance = float(r_disp) / 1e4
@@ -43,7 +44,7 @@ class RC3563Meter(object):
         else:
             print(f"Unknown display code '{r_status_disp_code:#x}'")
 
-        #print(f"r_disp_code='{r_disp_code:#x}' r_unit_disp='{r_unit_disp}'")
+        # print(f"r_disp_code='{r_disp_code:#x}' r_unit_disp='{r_unit_disp}'")
 
         r_unit = r_unit_disp
 
@@ -92,7 +93,7 @@ class RC3563Meter(object):
 
         v_disp_code = ( status_disp & 0x0F )
         if v_disp_code == 0x04:
-            pass # Nop, everything is OK
+            pass  # Nop, everything is OK
         elif v_disp_code == 0x08:
             voltage = 'OL'
 
@@ -110,7 +111,6 @@ class RC3563Meter(object):
         result['OCV'] = dict(range=v_range, unit='V', v=voltage)
 
         return result
-
 
     def measure(self, config):
 
@@ -143,9 +143,12 @@ class RC3563Meter(object):
             else:
                 return None
 
+
 def _config_group(parser):
     group = parser.add_argument_group('rc3563')
-    group.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'), help='Serial port connected to the RC3563 meter')
+    group.add_argument('--rc3563-port', default=os.getenv('RC3563_PORT', '/dev/ttyUSB0'),
+        help='Serial port connected to the RC3563 meter')
+
 
 v1.register_measurement(v1.Measurement('rc', RC3563Meter))
 v1.register_config_group('rc', _config_group)

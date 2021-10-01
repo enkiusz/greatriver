@@ -8,6 +8,7 @@ from secondlife.plugins.api import v1
 from secondlife.infoset import Infoset
 from secondlife.celldb import CellDB
 
+
 class JsonFiles(CellDB):
     def __init__(self, dsn=None, **kwargs):
         super().__init__()
@@ -17,20 +18,20 @@ class JsonFiles(CellDB):
             self.basepath = Path(dsn).resolve(strict=True)
         else:
             self.basepath = Path().resolve(strict=True)
-                
+
         self.log.debug('backend setup', basepath=self.basepath)
 
     def init(self):
         self.log.info('creating celldb', basepath=self.basepath)
 
         Path(self.basepath).mkdir(exist_ok=True)
-    
+
     def __repr__(self):
         return f'JsonFiles/{repr(self.basepath)}'
 
     def _load_cell_infoset(self, location: Path) -> Infoset:
         infoset = Infoset()
-        
+
         cell_id = location.parent.name
 
         # Load properties
@@ -71,13 +72,13 @@ class JsonFiles(CellDB):
 
             infoset.fetch('.extra').append({
                 'name': extra_filename.name,
-                'props': { 
+                'props': {
                     'stat': {
                         'ctime': extra_filename.stat().st_ctime,
                         'mtime': extra_filename.stat().st_mtime
                     }
                 },
-                'ref': None, # Content is directly stored, not referenced
+                'ref': None,  # Content is directly stored, not referenced
                 'content': extra_filename.read_bytes()
             })
 
@@ -123,7 +124,7 @@ class JsonFiles(CellDB):
             # TODO: Restore file ctime and mtime from props
             location.joinpath(extra['name']).write_bytes(extra['content'])
 
-    def find(self) -> Infoset: # Generator
+    def find(self) -> Infoset:  # Generator
 
         for path in self.basepath.glob('**/meta.json'):
             try:
@@ -134,5 +135,6 @@ class JsonFiles(CellDB):
 
             except Exception as e:
                 self.log.error('cannot load cell', path=path, _exc_info=e)
+
 
 v1.register_celldb_backend('json-files', JsonFiles)

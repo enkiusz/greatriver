@@ -14,6 +14,7 @@ from secondlife.cli.utils import CompileJQ
 
 log = structlog.get_logger()
 
+
 class InfosetReport(object):
 
     def __init__(self, **kwargs):
@@ -55,6 +56,7 @@ class InfosetReport(object):
                 print(f"=== Infoset for {id}")
                 print(item[0])
 
+
 class CompileJQAndAppend(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         try:
@@ -63,9 +65,12 @@ class CompileJQAndAppend(argparse.Action):
             log.error('cannot compile query', query=values, _exc_info=e)
             sys.exit(1)
 
+
 def _config_group(parser):
     group = parser.add_argument_group('infoset report')
-    group.add_argument('--infoset-query', default=[], dest='infoset_queries', action=CompileJQAndAppend, help='Apply a JQ query to the infoset and print the result, use https://stedolan.github.io/jq/ syntax.')
+    group.add_argument('--infoset-query', default=[], dest='infoset_queries', action=CompileJQAndAppend,
+        help='Apply a JQ query to the infoset and print the result, use https://stedolan.github.io/jq/ syntax.')
+
 
 v1.register_report(v1.Report('infoset', InfosetReport))
 v1.register_config_group('infoset', _config_group)

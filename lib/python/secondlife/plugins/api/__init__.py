@@ -6,6 +6,7 @@ import secondlife.plugins
 
 log = structlog.get_logger()
 
+
 # Reference: https://packaging.python.org/guides/creating-and-discovering-plugins/
 def iter_namespace(ns_pkg):
     # Specifying the second argument (prefix) to iter_modules makes the
@@ -14,11 +15,12 @@ def iter_namespace(ns_pkg):
     # the name.
     return pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + ".")
 
+
 def load_plugins(plugin_namespace=secondlife.plugins):
     global loaded_plugins
-    
+
     log.info('loading plugins', namespace=plugin_namespace)
-    
+
     loaded_plugins = {
         name: importlib.import_module(name)
         for finder, name, ispkg

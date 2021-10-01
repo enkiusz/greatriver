@@ -11,6 +11,7 @@ from .charger_specs import lii500_current_setups
 
 log = get_logger()
 
+
 def load_charger_ports_file(filename):
     log.debug('loading charger ports', filename=filename)
 
@@ -29,11 +30,11 @@ def load_charger_ports_file(filename):
 
     return ports
 
+
 class Lii500Meter(object):
 
     def __init__(self, **kwargs):
         self.config = kwargs['config']
-
 
     def measurement_from_charger(self, port, config):
 
@@ -44,8 +45,8 @@ class Lii500Meter(object):
             return None
 
         if lcd_state.get('mode', '') != 'nor test':
-           log.error('invalid test mode', lcd=lcd_state)
-           return None
+            log.error('invalid test mode', lcd=lcd_state)
+            return None
 
         if not lcd_state.get('end'):
             log.error('test not finished', lcd=lcd_state)
@@ -73,7 +74,6 @@ class Lii500Meter(object):
 
         return result
 
-
     def manual_result_entry(self, config):
 
         capa = None
@@ -92,7 +92,7 @@ class Lii500Meter(object):
                     ir = float(input('IR [mOhm] > '))
                 except ValueError:
                     continue
-        
+
         result = {
             'type': 'measurement', 'event': 'finished', 'ts': time.time(),
             'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
@@ -105,7 +105,6 @@ class Lii500Meter(object):
 
         result['setup'].update( lii500_current_setups[config.lii500_current_setting] )
         return result
-
 
     def measure(self, config):
 
@@ -142,12 +141,17 @@ class Lii500Meter(object):
 
         return result
 
+
 def _config_group(parser):
     group = parser.add_argument_group('lii500')
-    group.add_argument('--lii500-port', default=os.getenv('LII500_PORT', None), help='Serial port used by the Lii-500 charger USB interface')
-    group.add_argument('--lii500-current-setting', choices=['300mA', '500 mA', '700 mA', '1000 mA'], default='500 mA', help='Current setting of the Lii-500 charger')
+    group.add_argument('--lii500-port', default=os.getenv('LII500_PORT', None),
+        help='Serial port used by the Lii-500 charger USB interface')
+    group.add_argument('--lii500-current-setting', choices=['300mA', '500 mA', '700 mA', '1000 mA'], default='500 mA',
+        help='Current setting of the Lii-500 charger')
     group.add_argument('--lii500-select', default=None, metavar='ID', help='Select the specified charger from the ports file')
-    group.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None), help='The file specifying serial ports for particular chargers')
+    group.add_argument('--lii500-ports-file', default=os.getenv('LII500_PORTS_FILE', None),
+        help='The file specifying serial ports for particular chargers')
+
 
 v1.register_measurement(v1.Measurement('capa', Lii500Meter))
 v1.register_config_group('capa', _config_group)

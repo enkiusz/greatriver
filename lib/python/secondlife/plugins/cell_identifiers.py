@@ -3,6 +3,7 @@
 from secondlife.plugins.api import v1
 from structlog import get_logger
 
+
 class CellIdentifiers(object):
 
     def __init__(self, **kwargs):
@@ -20,6 +21,7 @@ class CellIdentifiers(object):
         if format == 'ascii':
             print('\n'.join(self.ids))
         else:
-             log.error('unknown report format', format=format)
+            log.error('unknown report format', format=format)
+
 
 v1.register_report(v1.Report('cell_ids', CellIdentifiers, default_enable=True))

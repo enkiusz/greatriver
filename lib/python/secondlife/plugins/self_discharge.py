@@ -6,6 +6,7 @@ import asciitable
 
 log = get_logger()
 
+
 class SelfDischargeReport(object):
 
     def __init__(self, **kwargs):
@@ -35,6 +36,7 @@ class SelfDischargeReport(object):
         else:
             log.error('unknown report format', format=format)
 
+
 class SelfDischargeCheckResult(object):
     def __init__(self, **kwargs):
         self._cell = kwargs['cell']
@@ -60,7 +62,7 @@ class SelfDischargeCheckResult(object):
 
             log.debug('measurements', entries=measurement_log)
 
-            last_capacity_measurement_idx = next( 
+            last_capacity_measurement_idx = next(
                 filter( lambda idx: SelfDischargeCheckResult._capacity_measurement(measurement_log[idx]), reversed(range(0, len(measurement_log))) ),
                 None)
             if last_capacity_measurement_idx is None:
@@ -85,9 +87,11 @@ class SelfDischargeCheckResult(object):
             for ocv_measurement in ocv_measurements:
                 T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
                 if T < 21:
-                    log.debug('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T, ocv_measurement=ocv_measurement)
+                    log.debug('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T,
+                        ocv_measurement=ocv_measurement)
+
                     continue
-            
+
                 if ocv_measurement['results']['OCV']['v'] < 3.9:
                     result = 'FAIL'
                 else:

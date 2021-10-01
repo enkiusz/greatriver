@@ -14,9 +14,11 @@ from configparser import ConfigParser
 config = ConfigParser()
 
 argparser = argparse.ArgumentParser(description="Search for Allegro hard disks with best Passmark scores")
-argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
+argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'),
+    help='Configuration file location')
 argparser.add_argument('--category', '-c', metavar='ID', action='append', default=[4476], type=int, help='The category identifier')
-argparser.add_argument('--maxresults', metavar='NUM', type=int, default=100, help='Limit the number of search results for each query (speeds up search)')
+argparser.add_argument('--maxresults', metavar='NUM', type=int, default=100,
+    help='Limit the number of search results for each query (speeds up search)')
 argparser.add_argument("--min_size", metavar="GB", type=int, help="The minimum HDD size in GB")
 argparser.add_argument("--max_size", metavar="GB", type=int, help="The maximum HDD size in GB")
 argparser.add_argument("--rotation_rates", metavar="RPMs", help="Acceptable rotation rate(s) of the HDD, separated by commas")
@@ -39,7 +41,6 @@ log.debug(args)
 
 # Check if we can load from cache
 cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'passmark-hdds.pickle')
-
 
 hdds = None
 
@@ -72,7 +73,6 @@ except FileNotFoundError:
 
         hdds[drive_name] = dict(name=drive_name, rating=rating, rank=rank, value=value, price=price)
 
-
     with open(cache_filename, "wb") as f:
         pickle.dump(hdds, f)
 
@@ -90,7 +90,6 @@ cat_filter.filterValueId.item = [ args.category ]
 
 filteroptions = client.factory.create('ArrayOfFilteroptionstype')
 filteroptions.item = [ cat_filter ]
-
 
 if args.min_size is not None or args.max_size is not None:
     log.debug("Creating filter for HDD size constraint <{}, {}> GB".format(args.min_size, args.max_size))
@@ -199,15 +198,14 @@ p.align["Auction title"] = p.align["ID"] = "l"
 
 for item in res.itemsList.item:
     # Find the price
-    price=None
+    price = None
     for price_item in item.priceInfo.item:
         if price_item.priceType == 'buyNow':
-            price=price_item.priceValue
+            price = price_item.priceValue
 
     # Skip auctions
     if price is None:
         continue
-
 
     # Remove common keywords
     # Remove short keywords (< 5 characters)
@@ -224,10 +222,10 @@ for item in res.itemsList.item:
         score = 0
         for keyword in keywords:
             if name.lower().find(keyword.lower()) >= 0:
-                score+=1
+                score += 1
 
         if score > 0:
-            found_hdds.append("%s(%s)" % (name,hdds[name]['rating']))
+            found_hdds.append("%s(%s)" % (name, hdds[name]['rating']))
             passmark_sum += int(hdds[name]['rating'])
 
     if len(found_hdds) > 0:
@@ -239,5 +237,3 @@ for item in res.itemsList.item:
     p.add_row([item.itemId, item.itemTitle, item.biddersCount, price, "\n".join(found_hdds), passmark_avg])
 
 print(p.get_string(sortby="Avg. Passmark"))
-
-

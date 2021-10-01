@@ -14,9 +14,11 @@ import sys
 config = ConfigParser()
 
 argparser = argparse.ArgumentParser(description="Search for and summarize concluded offers on Allegro")
-argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'), help='Configuration file location')
+argparser.add_argument('--config', metavar='FILE', default=os.path.join(xdg_config_home, 'allegro-prodsearch', 'config.ini'),
+    help='Configuration file location')
 argparser.add_argument('--category', '-c', metavar='ID', action='append', type=int, help='The category identifier')
-argparser.add_argument('--maxresults', metavar='NUM', action='append', type=int, default=100, help='Limit the number of search results for each query (speeds up search)')
+argparser.add_argument('--maxresults', metavar='NUM', action='append', type=int, default=100,
+    help='Limit the number of search results for each query (speeds up search)')
 argparser.add_argument('query', metavar='QUERY', nargs='+', help='The query string to search')
 
 args = argparser.parse_args()
@@ -47,19 +49,21 @@ log.debug("Current category tree version '{}' key '{}'".format(cat_version, cat_
 categories = None
 
 # Check if we can load from cache
-cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))
+cache_filename = os.path.join(config['DEFAULT']['cache_location'], 'country-{}'.format(config['DEFAULT']['country_id']), 'categories-{}.pickle'.format(cat_version))  # noqa
 
 if os.path.isfile(cache_filename):
     with open(cache_filename, "rb") as f:
         categories = pickle.load(f)
 else:
-    log.fatal("Category tree version '{}' is not cached in '{}', please download using catsearch".format(cat_version, config['DEFAULT']['cache_location']))
+    log.fatal("Category tree version '{}' is not cached in '{}', please download using catsearch".format(cat_version, config['DEFAULT']['cache_location']))  # noqa
     sys.exit(1)
+
 
 def path(categories, cat_id):
     if cat_id == 0:
         return "/Allegro"
     return path(categories, categories[cat_id]['catParent']) + '/' + categories[cat_id]['catName']
+
 
 total_results = []
 for category_id in args.category:
@@ -88,7 +92,8 @@ for category_id in args.category:
 
         log.info("Searching for '%s' in category '%s'" % (q, category_id))
 
-        query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'], filterOptions=filter, resultSize=args.maxresults, resultScope=3)
+        query_result = client.service.doGetItemsList(webapiKey=webapi_key, countryId=config['DEFAULT']['country_id'],
+            filterOptions=filter, resultSize=args.maxresults, resultScope=3)
         log.info("Search returned %d offers (result set is limited to %d)" % (query_result.itemsCount, args.maxresults))
 
         log.debug(query_result)
@@ -114,7 +119,8 @@ for item in total_results:
         if price_item.priceType == "bidding" or price_item.priceType == "buyNow":
             price = price_item.priceValue
 
-    p.add_row([item.itemTitle, "%d (%s)" % (item.categoryId, path(categories, item.categoryId)) if categories is not None else item.categoryId, item.biddersCount, item.endingTime.strftime("%Y-%m-%d"), price])
+    p.add_row([item.itemTitle, "%d (%s)" % (item.categoryId, path(categories, item.categoryId)) if categories is not None else
+        item.categoryId, item.biddersCount, item.endingTime.strftime("%Y-%m-%d"), price])
     concluded_offers_count += 1
 
 log.info("Summarizing %d returned offers, %d offers concluded" % (len(total_results), concluded_offers_count))

@@ -21,16 +21,16 @@ from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selec
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
-                   sorted(getattr(logging, '_levelToName', None)
-                          or logging._levelNames)
-                   if getattr(v, "real", 0)]
+                   sorted(getattr(logging, '_levelToName', None) or logging._levelNames) if getattr(v, "real", 0)]
 
 log = structlog.get_logger()
+
 
 def init(config):
 
     backend = v1.celldb_backends[args.backend](args.backend_dsn, config=args)
     backend.init()
+
 
 def etl(config):
 
@@ -45,13 +45,14 @@ def etl(config):
 
         dest_backend.put(infoset)
 
+
 def suggest(config):
     log.info('suggest', action=config.action)
     if config.action == 'create':
         backend = v1.celldb_backends[args.backend](args.backend_dsn, config=args)
-        
+
         cache_filename = XDG_CACHE_HOME / 'secondlife' / 'suggestion-cache' / 'cache.pickle'
-        
+
         tags = set()
         prop_names = set()
         brands = set()
@@ -71,23 +72,23 @@ def suggest(config):
             # brand and model - these are handled separetely above
             # the version key - this is set by the cell db backend and cannot be manipulated directly
             #
-            prop_paths = filter(lambda path: path.startswith('.props.') and 
-                not path.startswith('.props.tags.') and 
-                not path in ('.props.v', '.props.tags', '.props.brand', '.props.model'), infoset.paths())
+            prop_paths = filter(lambda path: path.startswith('.props.') and
+                not path.startswith('.props.tags.') and
+                path not in ('.props.v', '.props.tags', '.props.brand', '.props.model'), infoset.paths())
             prop_names.update( map(lambda path: path[7:], prop_paths) )
-            
 
         cache_filename.parent.mkdir(parents=True, exist_ok=True)
         with open(cache_filename, 'wb') as f:
             log.debug('storing cache', cache_filename=cache_filename)
-            pickle.dump(dict(tags=tags, prop_names=prop_names, brands=brands, models=models), f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(dict(tags=tags, prop_names=prop_names, brands=brands, models=models),
+                f, pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr)
-    )    
+    )
 
     load_plugins()
 
@@ -108,7 +109,7 @@ if __name__ == '__main__':
         v1.config_groups[codeword](parser_init)
 
     parser_etl = subparsers.add_parser('etl', help='Migrate cells between databases')
-    parser_etl.set_defaults(cmd=etl)    
+    parser_etl.set_defaults(cmd=etl)
 
     group = parser_etl.add_argument_group('source backend')
     group.add_argument('--src-backend', choices=v1.celldb_backends.keys(), help='Source database backend')
@@ -117,7 +118,8 @@ if __name__ == '__main__':
     add_cell_selection_args(parser_etl)
 
     group = parser_etl.add_argument_group('transforms')
-    group.add_argument('-T', '--transform', choices=v1.infoset_transforms.keys(), default=["copy"], action='append', dest='infoset_transforms', help='Apply the specified transforms (in order specified)')
+    group.add_argument('-T', '--transform', choices=v1.infoset_transforms.keys(), default=["copy"], action='append',
+        dest='infoset_transforms', help='Apply the specified transforms (in order specified)')
 
     group = parser_etl.add_argument_group('destination backend')
     group.add_argument('--dest-backend', choices=v1.celldb_backends.keys(), help='Destination database backend')
@@ -131,14 +133,14 @@ if __name__ == '__main__':
     for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
         v1.config_groups[codeword](parser_etl)
 
-
     parser_suggest = subparsers.add_parser('suggest', help='Manage suggestion cache')
     parser_suggest.set_defaults(cmd=suggest)
 
     add_backend_selection_args(parser_suggest)
     add_cell_selection_args(parser_suggest)
 
-    parser_suggest.add_argument('-A', '--action', choices=['create'], help='Specify action to perform on the suggestion cache')
+    parser_suggest.add_argument('-A', '--action', choices=['create'],
+        help='Specify action to perform on the suggestion cache')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - celldb backend plugins

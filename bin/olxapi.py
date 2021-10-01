@@ -22,11 +22,12 @@ requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
 
 try:
-    from http.client import HTTPConnection # py3
+    from http.client import HTTPConnection  # py3
 except ImportError:
-    from httplib import HTTPConnection # py2
+    from httplib import HTTPConnection  # py2
 
 HTTPConnection.debuglevel = 1
+
 
 class OlxMobileApiSession(requests.Session):
     def __init__(self, *args, **kwargs):
@@ -37,19 +38,20 @@ class OlxMobileApiSession(requests.Session):
         self.headers.update({ "User-Agent": "Android App"})
 
     def request(self, method, url, **kwargs):
-        return super(OlxMobileApiSession, self).request(method, urljoin(self.base_url, url) , **kwargs)
+        return super(OlxMobileApiSession, self).request(method, urljoin(self.base_url, url), **kwargs)
+
 
 def main():
     s = OlxMobileApiSession()
 
-    r = s.get("/i2/account/menu/", params= {"json": 1, "version": "2.3.9"})
+    r = s.get("/i2/account/menu/", params={"json": 1, "version": "2.3.9"})
     print(r.json())
 
     print("------------------------------------------------")
 
-    r = s.get("/i2/myaccount/active", params= {"json": 1, "page": 1, "version": "2.3.9"})
+    r = s.get("/i2/myaccount/active", params={"json": 1, "page": 1, "version": "2.3.9"})
     print(json.dumps(r.json(), indent=4, sort_keys=True))
+
 
 if __name__ == "__main__":
     main()
-

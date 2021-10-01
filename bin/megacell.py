@@ -34,11 +34,10 @@ from secondlife.cli.utils import perform_measurement
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
-                   sorted(getattr(logging, '_levelToName', None)
-                          or logging._levelNames)
-                   if getattr(v, "real", 0)]
+                   sorted(getattr(logging, '_levelToName', None) or logging._levelNames) if getattr(v, "real", 0)]
 
 log = structlog.get_logger()
+
 
 class ActionCodes(str, Enum):
     START_LVC_RECOVERY = 'alr'
@@ -48,6 +47,7 @@ class ActionCodes(str, Enum):
     STOP_DISCHARGING = 'odc'
     START_CAPACITY_TEST = 'act'
     STOP_CAPACITY_TEST = 'omc'
+
 
 class StatusStrings(str, Enum):
     NOT_INSERTED = 'Not Inserted'
@@ -73,7 +73,8 @@ class StatusStrings(str, Enum):
     MCAP_STORE_CHARGING = 'mCap Store Charging'
     STORE_CHARGED = 'Store Charged'
 
-    BAD_CELL = 'Bad Cell' # StateStrings describes in detail what are the problems with the cell
+    BAD_CELL = 'Bad Cell'  # StateStrings describes in detail what are the problems with the cell
+
 
 #
 # This is a bit more useless as it doesn't update when actions have started. For example it's possible to have:
@@ -104,16 +105,17 @@ class StateStrings(str, Enum):
     # - max volage drop after LVC is exceeded
     LVC_RECOVERY_FAILED = 'LVC recovery failed'
 
+
 class Slots(int, Enum):
-    C1  = 0
-    C2  = 1
-    C3  = 2
-    C4  = 3
-    C5  = 4
-    C6  = 5
-    C7  = 6
-    C8  = 7
-    C9  = 8
+    C1 = 0
+    C2 = 1
+    C3 = 2
+    C4 = 3
+    C5 = 4
+    C6 = 5
+    C7 = 6
+    C8 = 7
+    C9 = 8
     C10 = 9
     C11 = 10
     C12 = 11
@@ -121,7 +123,8 @@ class Slots(int, Enum):
     C14 = 13
     C15 = 14
     C16 = 15
-    
+
+
 _megacell_settings_map = {
     'MaV': dict(path='charge.voltage.max', unit='V'),
     'StV': dict(path='charge.voltage.storage', unit='V'),
@@ -168,6 +171,7 @@ def _megacell_settings_unpack(megacell_settings) -> Infoset:
 
     return settings
 
+
 def _megacell_settings_pack(settings: Infoset) -> dict:
     """
     Pack a Infoset representing the charger settings object to a JSON dictionary which can be sent to the MegaCell API endpoint
@@ -180,14 +184,16 @@ def _megacell_settings_pack(settings: Infoset) -> dict:
         value = settings.fetch(spec['path'])
         if type(value) == dict:
             value = value['v']
-        
+
         data[key] = value
 
     return data
-    
+
+
 _megacell_cell_data_map = {
     'voltage': dict(path='voltage', unit='V'),
-    'amps': dict(path='current', unit='mA', value_kv=lambda key, raw_value: dict(v=abs(raw_value), direction='charging' if raw_value > 0 else 'discharging' if raw_value < 0 else None)),
+    'amps': dict(path='current', unit='mA', value_kv=lambda key,
+        raw_value: dict(v=abs(raw_value), direction='charging' if raw_value > 0 else 'discharging' if raw_value < 0 else None)),
     'capacity': dict(path='discharge.capacity', unit='mAh'),
     'chargeCapacity': dict(path='charge.capacity', unit='mAh'),
     'status': dict(path='status_text', value_decode=lambda key, raw_value: StatusStrings(raw_value)),
@@ -200,6 +206,7 @@ _megacell_cell_data_map = {
     'State': dict(path='state', value_decode=lambda key, raw_value: StateStrings(raw_value))
 }
 
+
 def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
     cell_info = {}
 
@@ -211,7 +218,7 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
         for (key, spec) in _megacell_cell_data_map.items():
             raw_value = cell[key]
             # Value is equal to raw value from JSON by default
-            value = raw_value 
+            value = raw_value
 
             if 'value_decode' in spec:
                 # Store the original value before decoding
@@ -225,13 +232,14 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
                     value.update({ 'u': spec['unit']})
 
             if 'value_kv' in spec:
-                value['_raw_v'] = value['v'] # Store raw_value
+                value['_raw_v'] = value['v']  # Store raw_value
                 # The value has additional KVps
                 value.update( spec['value_kv'](key, raw_value) )
 
             cell_info[slot].put(spec['path'], value)
-        
+
     return cell_info
+
 
 def retry(delay, max_retries, work, exc=None):
     retry_count = 0
@@ -250,11 +258,13 @@ def retry(delay, max_retries, work, exc=None):
             time.sleep(delay)
             log.warning('retrying', delay=delay, retry_count=retry_count, max_retries=max_retries)
 
+
 def _http_exc(e, res):
     log.warning('exception', _exc_info=e)
     if res is not None:
         log.debug('exception in http request', method=res.request.method, url=res.request.url)
         log.debug('http response', code=res.status_code, resource_url=res.url, headers=res.headers, content=res.text)
+
 
 class MegaCellAPIV0Session(sessions.BaseUrlSession):
 
@@ -263,7 +273,7 @@ class MegaCellAPIV0Session(sessions.BaseUrlSession):
         super().__init__(base_url=base_url, **kwargs)
         self._max_retries = 20
         self._retry_delay = 10
-        self._charger_id = 1 # This seems to be static for now
+        self._charger_id = 1  # This seems to be static for now
 
     def detect_fw_version(self):
         r = self.post('/api/who_am_i')
@@ -482,7 +492,7 @@ def megacell_api_session(base_url):
     fw_versions = [
         (re.compile(r'^Firmware V4\.3\.0\.11$'), MegaCellAPIV0Session)
     ]
-        
+
     for (fw_regex, session_class) in fw_versions:
         if re.match(fw_regex, fw_version):
             return session_class(base_url=base_url)
@@ -508,7 +518,6 @@ class WorkflowLog(object):
         self.parent_log.append(self.main_event)
         return self
 
-
     def append(self, e):
         self.main_event['workflow']['log'].append(e)
 
@@ -532,6 +541,7 @@ class LoadJson(argparse.Action):
         else:
             log.fatal('argument must be a filename starting with @')
             sys.exit(1)
+
 
 class DefaultWorkflow(Thread):
     def __init__(self, **kwargs):
@@ -584,13 +594,15 @@ class DefaultWorkflow(Thread):
         log.info('workflow finished')
 
 
-workflows = [ DefaultWorkflow ]
-
 def _config_group(parser):
     group = parser.add_argument_group('megacell charger')
-    group.add_argument('--mcc-baseurl', default=os.getenv('MCC_BASEURL', None), help='URL used for the API endpoint of the Megacell Charger')
-    group.add_argument('--mcc-select', required=True, default=None, metavar='ID', help='Select the specified charger from the urls file')
-    group.add_argument('--mcc-urls-file', default=os.getenv('MCC_URLS_FILE', None), help='The file specifying API endpoint URLs for particular chargers')
+    group.add_argument('--mcc-baseurl', default=os.getenv('MCC_BASEURL', None),
+        help='URL used for the API endpoint of the Megacell Charger')
+    group.add_argument('--mcc-select', required=True, default=None, metavar='ID',
+        help='Select the specified charger from the urls file')
+    group.add_argument('--mcc-urls-file', default=os.getenv('MCC_URLS_FILE', None),
+        help='The file specifying API endpoint URLs for particular chargers')
+
 
 def SlotType(s):
     try:
@@ -637,6 +649,7 @@ def slot(config):
         # Print cells info
         cells_info = sess.get_cells_info()
         print(json.dumps( { slot.name: cells_info[slot].fetch('.') for slot in config.slots } ))
+
 
 def workflow(config):
     sess = megacell_api_session(config.mcc_baseurl)
@@ -689,7 +702,7 @@ def workflow(config):
                 'slot': slot.name,
             },
             'setup': {
-                'charger_settings': charger_settings.fetch('.'), # FIXME: There is something wrong with infoset nesting here
+                'charger_settings': charger_settings.fetch('.'),  # FIXME: There is something wrong with infoset nesting here
 
                 #
                 # Put common capacity test information into the 'setup' key:
@@ -703,7 +716,7 @@ def workflow(config):
             'results': {}
         }) as workflow_log:
 
-            worker_threads[slot] = workflow_class(api_session=sess, 
+            worker_threads[slot] = workflow_class(api_session=sess,
                 config=config, slot=slot, queue=queue, cell_infoset=cell_infoset,
                 workflow_log=workflow_log)
 
@@ -733,7 +746,7 @@ def workflow(config):
 if __name__ == '__main__':
     # Restrict log message to be above selected level
     structlog.configure(
-        processors = [
+        processors=[
             structlog.threadlocal.merge_threadlocal,
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
@@ -761,7 +774,8 @@ if __name__ == '__main__':
 
     slot_parser = subparsers.add_parser('slots', help='Slot commands')
     slot_parser.set_defaults(cmd=slot)
-    slot_parser.add_argument('--action', choices=[ac.name for ac in ActionCodes], help="Select the action to be performed by the charger")
+    slot_parser.add_argument('--action', choices=[ac.name for ac in ActionCodes],
+        help="Select the action to be performed by the charger")
     slot_parser.add_argument('--info', action='store_true', help='Print current cell data')
     _slot_group(slot_parser)
 
@@ -775,9 +789,9 @@ if __name__ == '__main__':
 
     workflow_parser.add_argument('--workflow', action='store_true', help='Start workflow for cells already in charger')
     _slot_group(workflow_parser)
-    workflow_parser.add_argument('--autocreate', default=False, action='store_true', help='Create cell IDs that are selected but not found')
+    workflow_parser.add_argument('--autocreate', default=False, action='store_true',
+        help='Create cell IDs that are selected but not found')
     workflow_parser.add_argument('--path', default=os.getenv('CELLDB_PATH'), help='Set cell path')
-
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
@@ -798,6 +812,3 @@ if __name__ == '__main__':
 
     if hasattr(args, 'cmd'):
         args.cmd(config=args)
-
-    #main(config=args)
-

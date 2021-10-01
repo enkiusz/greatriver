@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 import asciitable
 import json
 
+
 class InternalResistanceReport(object):
 
     def __init__(self, **kwargs):
@@ -35,6 +36,7 @@ class InternalResistanceReport(object):
         else:
             log.error('unknown report format', format=format)
 
+
 class InternalResistance(object):
     def __init__(self, **kwargs):
         self._cell = kwargs['cell']
@@ -43,14 +45,14 @@ class InternalResistance(object):
         try:
             measurement_log = self._cell.fetch('.log')
 
-            ir_measurements = list(filter(lambda m: 'IR' in m.get('results',{}), measurement_log))
+            ir_measurements = list(filter(lambda m: 'IR' in m.get('results', {}), measurement_log))
 
             # Search for RC3563, the the last IR measurement if this is not found
             rc3563_measurements = list(filter(lambda m: m['equipment']['model'] == 'RC3563', ir_measurements))
             if len(rc3563_measurements) > 0:
-                ir_measurement = rc3563_measurements[-1] # Last measurement is the newest one
+                ir_measurement = rc3563_measurements[-1]  # Last measurement is the newest one
             else:
-                ir_measurement = ir_measurements[-1] # Last measurement is the newest one
+                ir_measurement = ir_measurements[-1]  # Last measurement is the newest one
 
             return ir_measurement['results']['IR']
         except Exception as e:
