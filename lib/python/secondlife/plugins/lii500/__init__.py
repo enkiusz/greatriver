@@ -65,6 +65,9 @@ class Lii500Meter(object):
 
         result['setup'].update( lii500_current_setups[lcd_state['current_select']] )
 
+        (ocv_v, ocv_u) = lcd_state['voltage'].split()
+        result['results']['OCV'] = dict(u=ocv_u, v=float(ocv_v))
+
         (capa_v, capa_u) = lcd_state['capacity'].split()
         result['results']['capacity'] = dict(u=capa_u, v=float(capa_v))
 
@@ -78,8 +81,9 @@ class Lii500Meter(object):
 
         capa = None
         ir = None
+        voltage = None
 
-        while capa is None or ir is None:
+        while capa is None or ir is None or voltage is None:
 
             if capa is None:
                 try:
@@ -93,11 +97,18 @@ class Lii500Meter(object):
                 except ValueError:
                     continue
 
+            if voltage is None:
+                try:
+                    voltage = float(input('Voltage [V] > '))
+                except ValueError:
+                    continue
+
         result = {
             'type': 'measurement', 'event': 'finished', 'ts': time.time(),
             'equipment': dict(brand='Liitokala', model='Engineer LI-500'),
             'setup': dict(mode_setting='NOR TEST'),
             'results': {
+                'OCV': dict(u='V', v=voltage),
                 'capacity': dict(u='mAh', v=capa),
                 'IR': dict(u='mOhm', v=ir)
             }
