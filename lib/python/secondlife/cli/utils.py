@@ -126,6 +126,7 @@ class CompileJQAndAppend(argparse.Action):
             log.error('cannot compile query', query=values, _exc_info=e)
             sys.exit(1)
 
+
 # Add arguments which are used by the selected_cells() function
 def add_cell_selection_args(parser):
     group = parser.add_argument_group('cell selection')

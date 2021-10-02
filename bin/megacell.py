@@ -584,9 +584,6 @@ class DefaultWorkflow(Thread):
 
                 workflow_log.main_event['setup']['charge_discharge_cycles'] = mcap_outcome['capacity_test']['completed_cycles']
 
-                # Charge up to full
-
-
             else:
                 log.warning('failed capacity measurement', outcome=mcap_outcome)
 
