@@ -202,11 +202,11 @@ _megacell_cell_data_map = {
     'capacity': dict(path='discharge.capacity', unit='mAh'),
     'chargeCapacity': dict(path='charge.capacity', unit='mAh'),
     'status': dict(path='status_text', value_decode=lambda key, raw_value: StatusStrings(raw_value)),
-    'esr': dict(path='esr.current', unit='Ohm'),
+    'esr': dict(path='esr', unit='Ohm'),
     'action_length': dict(path='action.time_elapsed', unit='second'),
     'DiC': dict(path='capacity_test.target_cycles'),
     'complete_cycles': dict(path='capacity_test.completed_cycles'),
-    'temperature': dict(path='temperature.current', unit='degC'),
+    'temperature': dict(path='temperature', unit='degC'),
     'ChC': dict(path='busy'),
     'State': dict(path='state', value_decode=lambda key, raw_value: StateStrings(raw_value))
 }
@@ -355,14 +355,41 @@ class MegaCellAPIV0Session(sessions.BaseUrlSession):
         return True
 
 
+def _get_status_and_state(cell_info):
+    return dict(status_text=cell_info.fetch('status_text'), state_text=cell_info.fetch('.state'))
+
+
+def _get_measurement_results(cell_info):
+    outcome = dict(results={})
+
+    # At this point not all cell info items can be available
+    if cell_info.fetch('.voltage.v') > 0:
+        outcome['results'].update({
+            'OCV': cell_info.fetch('.voltage'),
+        })
+    if cell_info.fetch('.discharge.capacity.v') > 0:
+        outcome['results'].update({
+            'capacity': cell_info.fetch('.discharge.capacity')
+        })
+    if cell_info.fetch('.esr.v') > 0:
+        outcome['results'].update({
+            'IR': cell_info.fetch('.esr')
+        })
+    if cell_info.fetch('.charge.capacity.v') > 0:
+        outcome['results'].update({
+            'charge_capacity': cell_info.fetch('.charge.capacity')
+        })
+
+    return outcome
+
+
 def low_voltage_recovery(sess, slot: Slots, queue: Queue):
     log.info('performing low voltage recovery')
     outcome = dict(ok=False)
 
     cell_info = sess.get_cells_info()[slot]
+    outcome.update(_get_status_and_state(cell_info))
     status_text = cell_info.fetch('status_text')
-    outcome['status_text'] = status_text
-    outcome['state_text'] = cell_info.fetch('.state')
 
     if status_text == StatusStrings.NOT_INSERTED:
         # If cell is not inserted LVC cannot be started
@@ -387,15 +414,17 @@ def low_voltage_recovery(sess, slot: Slots, queue: Queue):
     log.info('low voltage recovery started')
 
     cell_info = queue.get()[slot]
+    outcome.update(_get_status_and_state(cell_info))
+    outcome.update(_get_measurement_results(cell_info))
     queue.task_done()
     while cell_info.fetch('status_text') != StatusStrings.LVC_COMPLETED:
         log.debug('waiting for low voltage recovery to finish', cell_info=cell_info.to_json())
         cell_info = queue.get()[slot]
+        outcome.update(_get_status_and_state(cell_info))
+        outcome.update(_get_measurement_results(cell_info))
         queue.task_done()
 
         status_text = cell_info.fetch('status_text')
-        outcome['status_text'] = status_text
-        outcome['state_text'] = cell_info.fetch('.state')
 
         if status_text == StatusStrings.NOT_INSERTED:
             # Break the loop if cell is removed
@@ -420,9 +449,9 @@ def measure_capacity(sess, slot: Slots, queue: Queue):
     outcome = dict(ok=False)
 
     cell_info = sess.get_cells_info()[slot]
+    outcome.update(_get_status_and_state(cell_info))
+
     status_text = cell_info.fetch('status_text')
-    outcome['status_text'] = status_text
-    outcome['state_text'] = cell_info.fetch('.state')
 
     if status_text == StatusStrings.NOT_INSERTED:
         # If cell is not inserted capacity measurement cannot be started
@@ -430,55 +459,52 @@ def measure_capacity(sess, slot: Slots, queue: Queue):
         return outcome
 
     if status_text == StatusStrings.BAD_CELL:
-        # The cell has been marked as bad by the charger
+        # The cell has been already marked as bad by the charger
+        outcome.update(_get_measurement_results(cell_info))
         log.error('bad cell')
         return outcome
 
     if status_text == StatusStrings.STORE_CHARGED:
-        # The capacity measurement has been completed already, just get the results
-        log.warn('capacity measurement already completed')
+        # The capacity measurement has been completed already
+        log.warn('capacity measurement already finished')
+        outcome.update(_get_measurement_results(cell_info))
+        outcome['ok'] = True
+        return outcome
 
-    else:
+    res = sess.multiple_slots_action([slot], ActionCodes.START_CAPACITY_TEST)
+    if not res:
+        log.error('cannot start capacity measurement')
+        return outcome
 
-        res = sess.multiple_slots_action([slot], ActionCodes.START_CAPACITY_TEST)
-        if not res:
-            log.error('cannot start capacity measurement')
+    log.info('capacity measurement started')
+
+    cell_info = queue.get()[slot]
+    outcome.update(_get_status_and_state(cell_info))
+    queue.task_done()
+    while cell_info.fetch('status_text') != StatusStrings.STORE_CHARGED:
+        log.debug('waiting for capacity measurement to finish', cell_info=cell_info.to_json())
+        cell_info = queue.get()[slot]
+        outcome.update(_get_status_and_state(cell_info))
+        queue.task_done()
+
+        status_text = cell_info.fetch('status_text')
+
+        if status_text == StatusStrings.NOT_INSERTED:
+            # Break the loop if cell is removed while capacity is being measured
+            log.error('cell removed')
             return outcome
 
-        log.info('capacity measurement started')
+        if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
+            outcome.update(_get_measurement_results(cell_info))
+            log.error('temperature exceeded limit')
+            return outcome
 
-        cell_info = queue.get()[slot]
-        queue.task_done()
-        while cell_info.fetch('status_text') != StatusStrings.STORE_CHARGED:
-            log.debug('waiting for capacity measurement to finish', cell_info=cell_info.to_json())
-            cell_info = queue.get()[slot]
-            queue.task_done()
+        if status_text == StatusStrings.BAD_CELL:
+            outcome.update(_get_measurement_results(cell_info))
+            log.error('bad cell')
+            return outcome
 
-            status_text = cell_info.fetch('status_text')
-            outcome['status_text'] = status_text
-            outcome['state_text'] = cell_info.fetch('.state')
-
-            if status_text == StatusStrings.NOT_INSERTED:
-                # Break the loop if cell is removed
-                log.error('cell removed')
-                return outcome
-
-            if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
-                log.error('temperature exceeded limit')
-                return outcome
-
-            if status_text == StatusStrings.BAD_CELL:
-                log.error('bad cell')
-                return outcome
-
-    # Save capacity measurement results
-    outcome['status_text'] = cell_info.fetch('status_text')
-    outcome['capacity_test'] = cell_info.fetch('.capacity_test')
-    outcome['results'] = {
-        'OCV': cell_info.fetch('.voltage'),
-        'capacity': cell_info.fetch('.discharge.capacity'),
-        'IR': cell_info.fetch('.esr.current')
-    }
+    outcome.update(_get_measurement_results(cell_info))
     outcome['ok'] = True
 
     log.info('capacity measurement finished', outcome=outcome)
