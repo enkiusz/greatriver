@@ -10,7 +10,7 @@ import sys
 import jq
 import argparse
 
-from secondlife.cli.utils import CompileJQ
+from secondlife.cli.utils import CompileJQ, CompileJQAndAppend
 
 log = structlog.get_logger()
 
@@ -55,15 +55,6 @@ class InfosetReport(object):
             for (id, item) in self.cells.items():
                 print(f"=== Infoset for {id}")
                 print(item[0])
-
-
-class CompileJQAndAppend(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        try:
-            getattr(namespace, self.dest).append(jq.compile(values))
-        except Exception as e:
-            log.error('cannot compile query', query=values, _exc_info=e)
-            sys.exit(1)
 
 
 def _config_group(parser):
