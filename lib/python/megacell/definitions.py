@@ -40,6 +40,9 @@ class StatusStrings(str, Enum):
 
     BAD_CELL = 'Bad Cell'  # StateStrings describes in detail what are the problems with the cell
 
+    # Unknown yet
+    OVERDISCHARGE_HALT = 'Overdischarge halt'
+
 
 #
 # This is a bit more useless as it doesn't update when actions have started. For example it's possible to have:
