@@ -241,7 +241,7 @@ Measurement
 
     {
       "type": "measurement",
-      "event": "finished",
+      "event": "finished",  
       "equipment": {
         "brand": "Liitokala",
         "model": "Engineer LI-500"
@@ -291,5 +291,5 @@ The extra items for a cell are binary blobs which can serve a multitude of purpo
 
 Select all "likely fake" no-name Samsung cells that can still be re-used.
 
-.props.brand == "SAMSUNG" and .state.self_discharge.assessment == "PASS" and .props.tags.likely_fake == true and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat_charging == true | not)
+.props.brand == "SAMSUNG" and .state.self_discharge.assessment == "PASS" and .props.tags.likely_fake == true and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not)
 
