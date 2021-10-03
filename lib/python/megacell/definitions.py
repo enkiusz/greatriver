@@ -74,6 +74,8 @@ class StateStrings(str, Enum):
     # Seen together with 'status': 'Bad Cell' when max LVC time elapses
     LVC_RECOVERY_FAILED = 'LVC recovery failed'
 
+    EMERGENCY_STOP = '!!!Emergency stop!!!'
+
 
 class Slots(int, Enum):
     C1 = 0
