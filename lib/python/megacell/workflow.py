@@ -46,8 +46,6 @@ class DefaultWorkflow(threading.Thread):
                 # Take the results from the capacity measurement (if there are any)
                 workflow_log.main_event['results'].update( mcap_outcome.get('results', {}) )
 
-                workflow_log.main_event['setup']['charge_discharge_cycles'] = mcap_outcome['capacity_test']['completed_cycles']
-
             else:
                 log.warning('failed capacity measurement', outcome=mcap_outcome)
 
