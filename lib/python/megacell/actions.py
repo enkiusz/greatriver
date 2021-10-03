@@ -119,6 +119,10 @@ def measure_capacity(sess, slot: Slots, queue: Queue):
             log.error('cell removed')
             return outcome
 
+        if status_text == StatusStrings.OVERDISCHARGE_HALT:
+            log.error('overdischarge halt')
+            return outcome
+
         if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
             outcome.update(_get_measurement_results(cell_info))
             log.error('temperature exceeded limit')
