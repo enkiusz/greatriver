@@ -18,6 +18,7 @@ import random
 from statistics import mean, stdev
 import time
 import os
+from functools import cached_property
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -28,102 +29,152 @@ log = structlog.get_logger()
 from secondlife.cli.utils import generate_id, selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
+def _calculate_statistics(data: list) -> dict:
+    d = dict(min=0, max=0, mean=0, stdev=0, stdev_pct=0, sum=sum(data))
 
-def block_ir(block):
-    return 1 / sum([ 1 / cell.fetch('.state.internal_resistance')['v'] for cell in block['cells'] ])
+    if len(data) > 0:
+        d['mean'] = mean(data)
+        d['min'] = min(data)
+        d['max'] = max(data)
 
+    if len(data) > 1:
+        d['stdev'] = stdev(data)
+        d['stdev_pct'] = (d['stdev'] / d['mean']) * 100
 
-def sum_stdev(blocks):
-    return stdev([ b['sum'] for b in blocks])
-
-
-def sum_mean(blocks):
-    return mean([ b['sum'] for b in blocks])
-
-
-def sum_stdev_ok(blocks):
-    return sum_stdev(blocks) / sum_mean(blocks) < 0.01
+    return d
 
 
-def max_ir_stdev(blocks):
-    return max([ b['ir']['stdev'] / b['ir']['mean'] for b in blocks ])
+class Block(object):
+    def __init__(self, **kwargs):
+        self._id = kwargs.get('id', generate_id('BL'))
+        self._cells = kwargs.get('cells', [])
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def cells(self):
+        return self._cells
+
+    def add_cell(self, cell):
+        try:
+            del self.capa
+        except AttributeError:
+            pass
+
+        try:
+            del self.ir
+        except AttributeError:
+            pass
+
+        return self.cells.append(cell)
+
+    @cached_property
+    def capa(self):
+        return _calculate_statistics(list(map(lambda c: c.fetch('.state.usable_capacity')['v'], self.cells)))
+
+    @cached_property
+    def ir(self):
+        d = _calculate_statistics(list(map(lambda c: c.fetch('.state.internal_resistance')['v'], self.cells)))
+        if len(self.cells) > 0:
+            d['parallel'] = 1 / sum([ 1 / cell.fetch('.state.internal_resistance')['v'] for cell in self.cells ])
+        else:
+            d['parallel'] = float('+Inf')
+        return d
+
+    def print_info(self, prefix=''):
+        print(f"{prefix}{self.id}\t{len(self.cells)}P\tcapa[sum {self.capa['sum']:5.0f} mAh, mean {self.capa['mean']:5.2f} stdev {self.capa['stdev']:3.2f} ({self.capa['stdev_pct']:3.1f} %)]\tIR[parallel {self.ir['parallel']:3.2f} mΩ, mean {self.ir['mean']:5.2f}, stdev {self.ir['stdev']:5.2f} mΩ ({self.ir['stdev_pct']:3.1f} %)]")
+
+class String(object):
+    def __init__(self, **kwargs):
+        self._id = kwargs.get('id', generate_id('STR'))
+        self._blocks = kwargs.get('blocks', [])
+        self._config = kwargs['config']
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def blocks(self):
+        return self._blocks
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def blocks_capa(self):
+        return _calculate_statistics(list(map(lambda b: b.capa['sum'], self.blocks)))
+
+    @property
+    def blocks_ir(self):
+        return _calculate_statistics(list(map(lambda b: b.ir['parallel'], self.blocks)))
+
+    @property
+    def energy_capacity(self):
+        return (self.blocks_capa['sum']/1000 * self.config.cell_voltage) / 1000
+
+    def print_info(self, prefix=''):
+        print(f"{self.id}\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")
+        for block in self.blocks:
+            block.print_info("\t")
+
+        log.info('pack layout', energy_capacity=f'{self.energy_capacity:.2f} kWh')
 
 
-def ir_stdev_ok(blocks):
-    return max_ir_stdev(blocks) < 0.3
-
-
-def total_capacity(blocks):
-    return sum([ b['sum'] for b in blocks ])
-
-
-def keep(blocks_before, blocks_after):
-    block_count = len(blocks_before)
-
-    b_sums_stdev_before = stdev([ b['sum'] for b in blocks_before ])
-    b_sums_stdev_after = stdev([ b['sum'] for b in blocks_after ])
-    b_sums_stdev_delta_improved = b_sums_stdev_after < b_sums_stdev_before
-
-    b_ir_stdev_before = [ b['ir']['stdev'] for b in blocks_before ]
-    b_ir_stdev_after = [ b['ir']['stdev'] for b in blocks_after ]
-    b_ir_stdev_improved = [ b_ir_stdev_after < b_ir_stdev_before for (b_ir_stdev_after, b_ir_stdev_before) in
-        zip(b_ir_stdev_after, b_ir_stdev_before) ]
-
-    if b_sums_stdev_delta_improved and len(b_ir_stdev_improved) == block_count:
-        return True
-    else:
+def improved(string_before, string_after):
+    """
+    Return True if the string_after has parameters better than string_before
+    """
+    if string_after.blocks_capa['stdev_pct'] > string_before.blocks_capa['stdev_pct']:
         return False
 
+    if string_after.blocks_ir['stdev_pct'] > string_before.blocks_ir['stdev_pct']:
+        return False
 
-def blocks_info(blocks, config):
-    log.info('pack layout', capacity_divergence=f'{sum_stdev(blocks):.2f} mAh',
-        max_ir_divergence=f"{max_ir_stdev(blocks)*100:.2f} %",
-        total_capacity=f"{total_capacity(blocks)/1000 * config.cell_voltage:.2f} Wh")
+    return True
 
-    if config.loglevel == 'DEBUG':
-        blocks_details(blocks, config)
+def stop(string):
+    """
+    Return True if the string layout is good enough.
+    """
 
+    if string.blocks_capa['stdev_pct'] > 1:
+        # Divergence between capacity of each block is > 1 %
+        return False
 
-def blocks_details(blocks, config):
-    print('\n'.join([ f"block {b['id']}\t{len(b['cells']):3d} cells, capa[sum {b['sum']:5.0f} mAh, mean {b['mean']:5.5f}, stdev {b['stdev']:3.5f} ({(b['stdev']/b['mean'])*100:3.2f} %)] IR[parallel {b['ir']['total']:.2f} mΩ, mean {b['ir']['mean']:5.3f} mΩ, stdev {b['ir']['stdev']:5.3f} mΩ ({(b['ir']['stdev']/b['ir']['mean'])*100:3.2f} %)]" for b in blocks ]))  # noqa
-    print(f"Capacity divergence (stdev between blocks): {sum_stdev(blocks):.2f} mAh ({(sum_stdev(blocks) / sum_mean(blocks)) * 100:.2f} %)")  # noqa
-    print(f"Total capacity {total_capacity(blocks)/1000:.2f} Ah * {config.cell_voltage} V = {(config.cell_voltage * (total_capacity(blocks)/1000)):.2f} Wh")  # noqa
-
-
-def stop(blocks):
-    if sum_stdev_ok(blocks) and ir_stdev_ok(blocks):
-        return True
+    if string.blocks_ir['stdev_pct'] > 30:
+        # Divergence between the internal resistance of each block is > 30 %
+        return False
 
     return False
 
 
-def get_blocks(pool, S, P):
+def build_string(pool, S, P, config):
     pool = pool.copy()
 
-    blocks = [ dict(id=generate_id('BL'), cells=[]) for i in range(S) ]
-    block_size = 0
+    string = String(config=config, blocks=[ Block() for i in range(S) ])
     max_block_size = P
 
-    while len(pool) >= S:
-        for block in blocks:
-            block['cells'].append(pool.pop(0))
+    while len(pool) >= S and any([ len(block.cells) < max_block_size for block in string.blocks ]):
 
-        block_size += 1
-        if block_size == max_block_size:
-            break
+        # Simple round-robin assignment
+        for block in string.blocks:
+            block.add_cell(pool.pop(0))
 
-    for block in blocks:
-        block['mean'] = mean([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
-        block['stdev'] = stdev([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
-        block['sum'] = sum([ c.fetch('.state.usable_capacity')['v'] for c in block['cells'] ])
+        # Match based on IR:
+        # Decide where to add the cell based on minimum difference between mean IR and cell IR
+        #
+        # cell = pool.pop(0)
+        # cell_ir = cell.fetch('.state.internal_resistance')['v']
 
-        block['ir'] = {
-            'total': block_ir(block),
-            'mean': mean([ c.fetch('.state.internal_resistance')['v'] for c in block['cells'] ]),
-            'stdev': stdev([ c.fetch('.state.internal_resistance')['v'] for c in block['cells'] ])
-        }
+        # nonfull_blocks = filter(lambda block: len(block.cells) < max_block_size, string.blocks)
+        # best_block = sorted(nonfull_blocks, key=lambda block: abs(block.ir['mean'] - cell_ir))[0]
+        # best_block.add_cell(cell)
 
-    return blocks
+    return string
 
 
 def main(config):
@@ -153,12 +204,11 @@ def main(config):
         log.warning('pool is too small for fill out all cells', pool_size=len(pool), S=config.S, P=config.P)
 
     # Initial blocks
-    blocks = get_blocks(pool, config.S, config.P)
-    initial_blocks = copy.deepcopy(blocks)
-
-    blocks_info(initial_blocks, config=config)
+    string = build_string(pool, config.S, config.P, config)
+    string.print_info()
 
     iterations = 0
+    optimizer_start_time = time.time()
     last_progress_report = time.time()
     last_new_pack = time.time()
 
@@ -167,13 +217,14 @@ def main(config):
         i1, i2 = random.sample(range(len(pool)), 2)
         pool[i1], pool[i2] = pool[i2], pool[i1]
 
-        blocks_new = get_blocks(pool, config.S, config.P)
+        new_string = build_string(pool, config.S, config.P, config)
 
-        if keep(blocks, blocks_new):
-            blocks_info(blocks_new, config=config)
+        if improved(string, new_string):
+            os.system('cls' if os.name == 'nt' else 'clear')
+            string.print_info()
 
             last_new_pack = time.time()
-            blocks = blocks_new
+            string = new_string
         else:
             # Reverse the swap
             pool[i1], pool[i2] = pool[i2], pool[i1]
@@ -183,13 +234,12 @@ def main(config):
             last_progress_report = time.time()
             log.info('progress', iterations=iterations)
 
-        if stop(blocks) or time.time() - last_new_pack > config.optimizer_timeout:
-            log.warn('optimizer timeout')
+        if stop(string) or time.time() - last_new_pack > config.optimizer_timeout or time.time() - optimizer_start_time > config.total_timeout:
+            log.info('optimizer timeout')
             break
 
     log.info('optimization finished')
-    blocks_info(blocks, config=config)
-    blocks_details(blocks, config=config)
+    string.print_info()
 
 
 if __name__ == "__main__":
@@ -211,6 +261,8 @@ if __name__ == "__main__":
     group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
     group.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float,
         help='Finish optimizer when a better solution is not found in SEC seconds')
+    group.add_argument('--total-timeout', metavar='SEC', default=300, type=float,
+        help='Finish optimizer after SEC seconds')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
