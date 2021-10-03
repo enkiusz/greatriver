@@ -29,6 +29,7 @@ log = structlog.get_logger()
 from secondlife.cli.utils import generate_id, selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
+
 def _calculate_statistics(data: list) -> dict:
     d = dict(min=0, max=0, mean=0, stdev=0, stdev_pct=0, sum=sum(data))
 
@@ -84,7 +85,8 @@ class Block(object):
         return d
 
     def print_info(self, prefix=''):
-        print(f"{prefix}{self.id}\t{len(self.cells)}P\tcapa[sum {self.capa['sum']:5.0f} mAh, mean {self.capa['mean']:5.2f} stdev {self.capa['stdev']:3.2f} ({self.capa['stdev_pct']:3.1f} %)]\tIR[parallel {self.ir['parallel']:3.2f} mΩ, mean {self.ir['mean']:5.2f}, stdev {self.ir['stdev']:5.2f} mΩ ({self.ir['stdev_pct']:3.1f} %)]")
+        print(f"{prefix}{self.id}\t{len(self.cells)}P\tcapa[sum {self.capa['sum']:5.0f} mAh, mean {self.capa['mean']:5.2f} stdev {self.capa['stdev']:3.2f} ({self.capa['stdev_pct']:3.1f} %)]\tIR[parallel {self.ir['parallel']:3.2f} mΩ, mean {self.ir['mean']:5.2f}, stdev {self.ir['stdev']:5.2f} mΩ ({self.ir['stdev_pct']:3.1f} %)]")  # noqa
+
 
 class String(object):
     def __init__(self, **kwargs):
@@ -114,10 +116,10 @@ class String(object):
 
     @property
     def energy_capacity(self):
-        return (self.blocks_capa['sum']/1000 * self.config.cell_voltage) / 1000
+        return (self.blocks_capa['sum'] / 1000 * self.config.cell_voltage) / 1000
 
     def print_info(self, prefix=''):
-        print(f"{self.id}\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")
+        print(f"{self.id}\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")  # noqa
         for block in self.blocks:
             block.print_info("\t")
 
@@ -135,6 +137,7 @@ def improved(string_before, string_after):
         return False
 
     return True
+
 
 def stop(string):
     """
