@@ -1,0 +1,88 @@
+{
+  "fw_version": "Firmware V4.3.0.11",
+  "charge": {
+    "voltage": {
+      "max": {
+        "v": 4.2,
+        "u": "V"
+      },
+      "storage": {
+        "v": 3.6,
+        "u": "V"
+      },
+      "min": {
+        "v": 3,
+        "u": "V"
+      }
+    },
+    "temp": {
+      "max": {
+        "v": 40,
+        "u": "degC"
+      }
+    },
+    "time": {
+      "max": {
+        "v": 240,
+        "u": "minute"
+      }
+    },
+    "correction_factor": {
+      "v": 1,
+      "u": "1/1"
+    }
+  },
+  "discharge": {
+    "current": {
+      "max": {
+        "v": 1000,
+        "u": "mA"
+      }
+    },
+    "correction_factor": {
+      "v": 1,
+      "u": "1/1"
+    }
+  },
+  "capacity_test": {
+    "cycles": 1
+  },
+  "lcv": {
+    "voltage": {
+      "min": {
+        "v": 1.0,
+        "u": "V"
+      },
+      "end": {
+        "v": 3.6,
+        "u": "V"
+      }
+    },
+    "time": {
+      "max": {
+        "v": 240,
+        "u": "minute"
+      }
+    }
+  },
+  "bad_cell_rejection": {
+    "lcv": {
+      "max_voltage_drop": {
+        "v": 1.1,
+        "u": "V"
+      }
+    },
+    "capacity": {
+      "min": {
+        "v": 500,
+        "u": "mAh"
+      }
+    },
+    "esr": {
+      "max": {
+        "v": 250,
+        "u": "mOhm"
+      }
+    }
+  }
+}
