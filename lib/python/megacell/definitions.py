@@ -71,6 +71,9 @@ class StateStrings(str, Enum):
     # Seen together with 'status': 'Bad Cell' when voltage drops more than maximum during low voltage recovery
     HIGH_VOLT_DROP_ERROR = 'High volt drop Error'
 
+    # Seen together with 'status': 'Bad Cell' when the charging time is exceeded
+    CHARGE_TIME_EXCEEDED = 'Charge time exceeded'
+
     # Seen together with 'status': 'Bad Cell' when max LVC time elapses
     LVC_RECOVERY_FAILED = 'LVC recovery failed'
 
