@@ -36,9 +36,9 @@ def _get_measurement_results(cell_info):
             'charge_capacity': cell_info.fetch('.charge.capacity')
         })
     if cell_info.fetch('.capacity_test.completed_cycles') > 0:
-        outcome['results'] = {
+        outcome['results'].update({
             'completed_cycles': cell_info.fetch('.capacity_test.completed_cycles')
-        }
+        })
 
     return outcome
 
