@@ -27,7 +27,11 @@ def _since_now(ts):
 def _format_results(results):
     r = []
     for (name, value) in results.items():
-        r.append(f"{name}={value['v']}{value.get('u', value.get('unit'))}")
+        try:
+            r.append(f"{name}={value['v']}{value.get('u', value.get('unit'))}")
+        except Exception:
+            # No 'v' or 'u' key, print as plain value
+            r.append(f"{name}={value!r}")
 
     return ' '.join(r)
 
