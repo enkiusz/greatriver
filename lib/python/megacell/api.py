@@ -191,8 +191,7 @@ def _megacell_multicast_unpack(address, pkt):
     workflow_type, workflow,
     reserved1, reserved2, reserved3, reserved4, reserved5,
     DcO, CcO,
-    cell_state, esr_running
-    ) = struct.unpack("<BBBBBBB fff II BHHH II ff fffffffff fffff II iiI ii iiiii BB iB 7x", pkt)
+    cell_state, esr_running) = struct.unpack("<BBBBBBB fff II BHHH II ff fffffffff fffff II iiI ii iiiii BB iB 7x", pkt)
 
     parsed = dict(cellID=cellID, incrementActionLength=incrementActionLength, ChC=ChC, voltChargeMode=voltChargeMode, moduleID=moduleID,
         dischargeCHNL=dischargeCHNL, chargeCHNL=chargeCHNL, LmV=LmV, LcV=LcV, LmD=LmD,
@@ -207,8 +206,7 @@ def _megacell_multicast_unpack(address, pkt):
         workflow_type=workflow_type, workflow=workflow,
         reserved1=reserved1, reserved2=reserved2, reserved3=reserved3, reserved4=reserved4, reserved5=reserved5,
         DcO=DcO, CcO=CcO,
-        cell_state=cell_state, esr_running=esr_running
-        )
+        cell_state=cell_state, esr_running=esr_running)
 
     log.debug('parsed packet', parsed=parsed)
     return parsed
