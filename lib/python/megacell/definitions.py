@@ -117,11 +117,10 @@ _megacell_settings_map = {
     'CcO': dict(path='charge.correction_factor', unit='1/1'),
     'DcO': dict(path='discharge.correction_factor', unit='1/1'),
     'MsR': dict(path='bad_cell_rejection.esr.max', unit='mOhm'),
+    'MuL': dict(path='multicast')
     #
     # settings.put('charge.current.max', dict(v=1, u='A')) # This is static and cannot be changed with the API
     #
-    # This parameter is unknown, always 0
-    # 'MuL'
 }
 
 
