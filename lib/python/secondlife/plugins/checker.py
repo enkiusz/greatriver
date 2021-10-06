@@ -12,6 +12,16 @@ import argparse
 
 log = structlog.get_logger()
 
+
+def _check_log_units(log):
+    for entry in log:
+        if 'results' in entry:
+            for result in entry['results'].values():
+                if 'unit' in result:
+                    return False
+    return True
+
+
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model': lambda infoset: not (
@@ -19,7 +29,8 @@ checks = {
     ),
     'only_brand': lambda infoset: not (
         infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None
-    )
+    ),
+    'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
 }
 
 
