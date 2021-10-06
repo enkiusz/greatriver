@@ -6,6 +6,7 @@
 # Allow module load from lib/python in main repo
 import sys
 from pathlib import Path
+
 currentdir = Path(__file__).resolve(strict=True).parent
 libdir = currentdir.parent.joinpath('lib/python')
 sys.path.append(str(libdir))
@@ -15,17 +16,16 @@ import logging
 import structlog
 import os
 import json
-
 from collections import defaultdict
 import time
 from queue import Queue
 from threading import Thread
 import threading
-
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from structlog.contextvars import bind_contextvars, clear_contextvars
 import asciitable
-
+import socket
+import struct
 
 from secondlife.infoset import Infoset
 from secondlife.plugins.api import v1, load_plugins
@@ -33,7 +33,7 @@ from secondlife.cli.utils import selected_cells, add_plugin_args, add_cell_selec
 from secondlife.cli.utils import perform_measurement
 
 from megacell.definitions import ActionCodes, Slots, StatusStrings
-from megacell.api import megacell_api_session
+from megacell.api import megacell_api_session, _megacell_multicast_unpack
 from megacell.workflow import DefaultWorkflow
 from megacell.utils import WorkflowLog
 
@@ -98,6 +98,21 @@ def charger(config):
         log.info('configuring charger')
         sess.set_charger_settings(config.write_settings)
         return
+
+    if config.monitor_multicast:
+        multicast_group = '224.77.99.77'
+        port = 8888
+        log.info('listening for multicast status messages', multicast_group=multicast_group, port=port)
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((multicast_group, port))
+        mreq = struct.pack('4sl', socket.inet_aton(multicast_group), socket.INADDR_ANY)
+        sock.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+        while True:
+            (pkt, addr) = sock.recvfrom(1024)
+            print(_megacell_multicast_unpack(addr, pkt))
 
 
 def slot(config):
@@ -284,6 +299,7 @@ if __name__ == '__main__':
     charger_parser.set_defaults(cmd=charger)
     charger_parser.add_argument('--read-settings', action='store_true', help='Print charger settings')
     charger_parser.add_argument('--write-settings', action=LoadJson, help='Set new charger settings')
+    charger_parser.add_argument('--monitor-multicast', action='store_true', help='Listen for and print multicast status messages from the charger')
 
     workflow_parser = subparsers.add_parser('workflow', help='Workflow commands')
     workflow_parser.set_defaults(cmd=workflow)

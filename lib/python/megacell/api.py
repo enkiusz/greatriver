@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+from os import wait
 import structlog
 import re
 from requests_toolbelt import sessions
+import struct
 
 from secondlife.infoset import Infoset
 from .definitions import _megacell_settings_map, _megacell_cell_data_map, ActionCodes, Slots
@@ -114,6 +116,102 @@ def _megacell_cell_data_unpack(raw_data: dict) -> Infoset:
             cell_info[slot].put(spec['path'], value)
 
     return cell_info
+
+
+def _megacell_multicast_unpack(address, pkt):
+    (ip, port) = address
+    log.debug('multicast packet', size=len(pkt), source_ip=ip, port=port, pkt=pkt)
+
+# Reference: http://manual.megacellmonitor.com:3000/en/API_Multicast_messages
+# internal struct cellsInfoStruct
+# {
+#     internal byte cellID;
+#     internal byte incrementActionLength;
+#     internal byte ChC;
+#     internal byte voltChargeMode;
+#     internal byte moduleID;
+#     internal byte dischargeCHNL;
+#     internal byte chargeCHNL;
+#     internal float LmV;
+#     internal float LcV;
+#     internal float LmD;
+#     internal UInt32 lvc_start_millis;
+#     internal UInt32 start_charge_millis;
+#     internal byte LmR;
+#     internal UInt16 McH;
+#     internal UInt16 MsR;
+#     internal UInt16 LcR;
+#     internal UInt32 status;
+#     internal UInt32 cellOperation;
+#     internal float dischargeCapacity;
+#     internal float chargeCapacity;
+#     internal float amps;
+#     internal float esr;
+#     internal float MaV;
+#     internal float StV;
+#     internal float StV_delta;
+#     internal float MiV;
+#     internal float voltage;
+#     internal float temperature;
+#     internal float MaT;
+#     internal float resting_v1;
+#     internal float resting_v2;
+#     internal float esr_i1;
+#     internal float esr_i2;
+#     internal float action_length;
+#     internal UInt32 rest_start;
+#     internal UInt32 last_millis;
+#     internal Int32 DiC; //Discharge Cycles
+#     internal Int32 complete_cycles;
+#     internal UInt32 wait_cycles;
+#     internal Int32 workflow_type;
+#     internal Int32 workflow;
+#     internal Int32 Reserved1;
+#     internal Int32 Reserved2;
+#     internal Int32 Reserved3;
+#     internal Int32 Reserved4;
+#     internal Int32 Reserved5;
+#     internal byte DcO;
+#     internal byte CcO;
+#     internal Int32 cell_state;
+#     internal byte esr_running;
+#   // there are 7 extra bytes in the packet received
+# }
+
+    (cellID, incrementActionLength, ChC, voltChargeMode, moduleID, dischargeCHNL, chargeCHNL,
+    LmV, LcV, LmD,
+    lvc_start_millis, start_charge_millis,
+    LmR, McH, MsR, LcR,
+    status, cellOperation,
+    dischargeCapacity, chargeCapacity,
+    amps, esr, MaV, StV, StV_delta, MiV, voltage, temperature, MaT,
+    resting_v1, resting_v2, esr_i1, esr_i2, action_length,
+    rest_start, last_millis,
+    DiC, complete_cycles, wait_cycles,
+    workflow_type, workflow,
+    reserved1, reserved2, reserved3, reserved4, reserved5,
+    DcO, CcO,
+    cell_state, esr_running
+    ) = struct.unpack("<BBBBBBB fff II BHHH II ff fffffffff fffff II iiI ii iiiii BB iB 7x", pkt)
+
+    parsed = dict(cellID=cellID, incrementActionLength=incrementActionLength, ChC=ChC, voltChargeMode=voltChargeMode, moduleID=moduleID,
+        dischargeCHNL=dischargeCHNL, chargeCHNL=chargeCHNL, LmV=LmV, LcV=LcV, LmD=LmD,
+        lvc_start_millis=lvc_start_millis, start_charge_millis=start_charge_millis,
+        LmR=LmR, McH=McH, MsR=MsR, LcR=LcR,
+        status=status, cellOperation=cellOperation,
+        dischargeCapacity=dischargeCapacity, chargeCapacity=chargeCapacity,
+        amps=amps, esr=esr, MaV=MaV, StV=StV, StV_delta=StV_delta, MiV=MiV, voltage=voltage, temperature=temperature, MaT=MaT,
+        resting_v1=resting_v1, resting_v2=resting_v2, esr_i1=esr_i1, esr_i2=esr_i2, action_length=action_length,
+        rest_start=rest_start, last_millis=last_millis,
+        DiC=DiC, complete_cycles=complete_cycles, wait_cycles=wait_cycles,
+        workflow_type=workflow_type, workflow=workflow,
+        reserved1=reserved1, reserved2=reserved2, reserved3=reserved3, reserved4=reserved4, reserved5=reserved5,
+        DcO=DcO, CcO=CcO,
+        cell_state=cell_state, esr_running=esr_running
+        )
+
+    log.debug('parsed packet', parsed=parsed)
+    return parsed
 
 
 class MegaCellAPIV0Session(sessions.BaseUrlSession):
