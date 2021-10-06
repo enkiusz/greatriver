@@ -11,6 +11,10 @@ class ActionCodes(str, Enum):
     STOP_DISCHARGING = 'odc'
     START_CAPACITY_TEST = 'act'
     STOP_CAPACITY_TEST = 'omc'
+    START_STORE_CHARGE = 'asc'
+    STOP_STORE_CHARGE = 'osc'
+    START_DISPOSE = 'dsp'
+    STOP_DISPOSE = 'dps'
 
 
 class StatusStrings(str, Enum):
