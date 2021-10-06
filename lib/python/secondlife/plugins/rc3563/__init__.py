@@ -108,7 +108,7 @@ class RC3563Meter(object):
             print(f"Unknown voltage range code '{v_range_code:#x}'")
 
         log.debug('ocv', range=v_range, v=voltage, unit='V')
-        result['OCV'] = dict(range=v_range, unit='V', v=voltage)
+        result['OCV'] = dict(range=v_range, u='V', v=voltage)
 
         return result
 
