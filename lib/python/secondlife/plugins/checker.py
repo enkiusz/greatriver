@@ -17,8 +17,9 @@ def _check_log_units(log):
     for entry in log:
         if 'results' in entry:
             for result in entry['results'].values():
-                if 'unit' in result:
-                    return False
+                if hasattr(result, 'keys'):
+                    if 'unit' in result:
+                        return False
     return True
 
 
@@ -42,7 +43,7 @@ checks = {
         infoset.fetch('.props.brand') is None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.noname') is not True
     ),
     'only_brand': lambda infoset: not (
-        infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None
+        infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.likely_fake') is not True
     ),
     'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
     'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
@@ -59,7 +60,7 @@ class CheckerReport(object):
         self.codewords = self.config.checker_codewords
 
         if self.codewords is None:
-            self.codewords = check.keys()
+            self.codewords = checks.keys()
 
     def process_cell(self, infoset):
         cell_id = infoset.fetch('.id')
