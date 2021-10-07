@@ -29,6 +29,13 @@ def _check_log_ts(log):
     return True
 
 
+def _check_log_event(log):
+    for entry in log:
+        if 'event' not in entry:
+            return False
+    return True
+
+
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model': lambda infoset: not (
@@ -39,6 +46,7 @@ checks = {
     ),
     'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
     'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
+    'log_entries_without_event': lambda infoset: _check_log_event(infoset.fetch('.log')),
 }
 
 
