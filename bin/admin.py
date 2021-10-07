@@ -118,7 +118,7 @@ if __name__ == '__main__':
     add_cell_selection_args(parser_etl)
 
     group = parser_etl.add_argument_group('transforms')
-    group.add_argument('-T', '--transform', choices=v1.infoset_transforms.keys(), default=["copy"], action='append',
+    group.add_argument('-T', '--transform', choices=v1.infoset_transforms.keys(), action='append',
         dest='infoset_transforms', help='Apply the specified transforms (in order specified)')
 
     group = parser_etl.add_argument_group('destination backend')
@@ -149,6 +149,9 @@ if __name__ == '__main__':
         v1.config_groups[codeword](parser_suggest)
 
     args = parser.parse_args()
+
+    if not hasattr(args, 'infoset_transforms'):
+        args.infoset_transforms = [ "copy" ]
 
     structlog.configure( wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, args.loglevel)) )
 
