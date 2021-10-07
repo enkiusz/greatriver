@@ -36,6 +36,16 @@ def _format_results(results):
     return ' '.join(r)
 
 
+def _print_keys(data: dict, keys: list):
+    r = []
+    for key in keys:
+        if key not in data:
+            continue
+
+        r.append(f"{key}={data[key]}")
+    return ' '.join(r)
+
+
 class LogReport(object):
 
     def __init__(self, **kwargs):
@@ -54,7 +64,10 @@ class LogReport(object):
         self.cells[infoset.fetch('.id')] = [
             [
                 _since_now(m.get('ts')),
-                _format_results(m.get('results')) if m.get('results') else str(m)
+                m.get('type', 'NO TYPE CODE'),
+                m.get('event', 'NO EVENT CODE'),
+                _print_keys(m.get('equipment', {}), ('model', 'selector')),
+                _format_results(m.get('results')) if m.get('results') else str(m),
             ] for m in measurement_log
         ]
 
@@ -64,7 +77,8 @@ class LogReport(object):
             for (id, rows) in self.cells.items():
                 print(f"=== Log for {id}")
                 if len(rows) > 0:
-                    asciitable.write(rows, names=['Timestamp', 'Results'], Writer=asciitable.FixedWidth)
+                    asciitable.write(rows, names=['Timestamp', 'Type', 'Event', 'Equipment', 'Results'],
+                        formats={'Timestamp': '%s', 'Type': '%s', 'Event': '%s', 'Equipment': '%s', 'Results': '%s'}, Writer=asciitable.FixedWidth)
                 else:
                     print("LOG EMPTY")
         else:
