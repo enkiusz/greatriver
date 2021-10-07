@@ -19,6 +19,7 @@ from statistics import mean, stdev
 import time
 import os
 from functools import cached_property
+from itertools import zip_longest
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -118,20 +119,27 @@ class String(object):
     def energy_capacity(self):
         return (self.blocks_capa['sum'] / 1000 * self.config.cell_voltage) / 1000
 
-    def print_info(self, prefix=''):
-        print(f"{self.id}\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")  # noqa
-        for block in self.blocks:
-            block.print_info("\t")
+    def print_info(self, prefix='', verbose=False):
+        if verbose is True:
+            print(f"{self.id}\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")  # noqa
+            for block in self.blocks:
+                block.print_info("\t")
 
-        log.info('pack layout', energy_capacity=f'{self.energy_capacity:.2f} kWh')
+        log.info('pack layout', energy_capacity=f'{self.energy_capacity:3.1f} kWh',
+            block_capacity_mean=f"{self.blocks_capa['mean']/1000:3.2f} Ah",
+            block_capacity_divergence=f"{self.blocks_capa['stdev_pct']:3.2f} %",
+            block_ir_mean=f"{self.blocks_ir['mean']:2.2f} mΩ",
+            block_ir_divergence=f"{self.blocks_ir['stdev_pct']:3.2f} %")
 
 
 def improved(string_before, string_after):
     """
     Return True if the string_after has parameters better than string_before
     """
-    if string_after.blocks_capa['stdev_pct'] > string_before.blocks_capa['stdev_pct']:
-        return False
+
+    if string_before.blocks_capa['stdev_pct'] > 0.2:
+        if string_after.blocks_capa['stdev_pct'] > string_before.blocks_capa['stdev_pct']:
+            return False
 
     if string_after.blocks_ir['stdev_pct'] > string_before.blocks_ir['stdev_pct']:
         return False
@@ -144,15 +152,15 @@ def stop(string):
     Return True if the string layout is good enough.
     """
 
-    if string.blocks_capa['stdev_pct'] > 1:
-        # Divergence between capacity of each block is > 1 %
+    if string.blocks_capa['stdev_pct'] > 0.5:
+        # Divergence between capacity of each block is > 0.5 %
         return False
 
-    if string.blocks_ir['stdev_pct'] > 30:
-        # Divergence between the internal resistance of each block is > 30 %
+    if string.blocks_ir['stdev_pct'] > 5:
+        # Divergence between the internal resistance of each block is > 5 %
         return False
 
-    return False
+    return True
 
 
 def build_string(pool, S, P, config):
@@ -178,6 +186,17 @@ def build_string(pool, S, P, config):
         # best_block.add_cell(cell)
 
     return string
+
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into non-overlapping fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
+
+
+def cls():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 
 def main(config):
@@ -208,41 +227,52 @@ def main(config):
 
     # Initial blocks
     string = build_string(pool, config.S, config.P, config)
-    string.print_info()
 
     iterations = 0
     optimizer_start_time = time.time()
     last_progress_report = time.time()
     last_new_pack = time.time()
+    last_new_pack_iter = 0
 
     while True:
-        # Swap 2 random cells
-        i1, i2 = random.sample(range(len(pool)), 2)
-        pool[i1], pool[i2] = pool[i2], pool[i1]
+        n = ((iterations - last_new_pack_iter) // 2000) + 1
+
+        # Perform n swaps
+        swaps = list(grouper(random.sample(range(len(pool)), 2*n), 2))
+        for (i1, i2) in swaps:
+            pool[i1], pool[i2] = pool[i2], pool[i1]
 
         new_string = build_string(pool, config.S, config.P, config)
 
         if improved(string, new_string):
-            os.system('cls' if os.name == 'nt' else 'clear')
-            string.print_info()
+            if config.loglevel == 'DEBUG':
+                cls()
+            string.print_info(verbose=True if config.loglevel == 'DEBUG' else False)
 
             last_new_pack = time.time()
+            last_new_pack_iter = iterations
             string = new_string
         else:
-            # Reverse the swap
-            pool[i1], pool[i2] = pool[i2], pool[i1]
+            # Reverse swaps
+            for (i1, i2) in swaps:
+                pool[i1], pool[i2] = pool[i2], pool[i1]
+
 
         iterations += 1
         if iterations % 1000 == 0 or time.time() - last_progress_report >= 2:
             last_progress_report = time.time()
             log.info('progress', iterations=iterations)
 
-        if stop(string) or time.time() - last_new_pack > config.optimizer_timeout or time.time() - optimizer_start_time > config.total_timeout:
-            log.info('optimizer timeout')
+        if stop(string):
+            log.info('optimal solution found')
+            break
+
+        if (time.time() - last_new_pack > config.optimizer_timeout) or (time.time() - optimizer_start_time > config.total_timeout):
+            log.warn('optimizer timeout')
             break
 
     log.info('optimization finished')
-    string.print_info()
+    string.print_info(verbose=True)
 
 
 if __name__ == "__main__":
@@ -252,7 +282,7 @@ if __name__ == "__main__":
     )
     load_plugins()
 
-    parser = argparse.ArgumentParser(description='Select cells to build a pack having S series-connected blocks')
+    parser = argparse.ArgumentParser(description='Select cells to build a string of blocks connected in series. Monte-Carlo optimization.')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
     add_plugin_args(parser)
     add_backend_selection_args(parser)
@@ -262,7 +292,7 @@ if __name__ == "__main__":
     group.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
     group.add_argument('-S', dest='S', type=int, default=2, help='The amount of series-connected blocks in a string')
     group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
-    group.add_argument('--optimizer-timeout', metavar='SEC', default=10, type=float,
+    group.add_argument('--optimizer-timeout', metavar='SEC', default=60, type=float,
         help='Finish optimizer when a better solution is not found in SEC seconds')
     group.add_argument('--total-timeout', metavar='SEC', default=300, type=float,
         help='Finish optimizer after SEC seconds')
