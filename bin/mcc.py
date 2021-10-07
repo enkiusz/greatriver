@@ -202,6 +202,7 @@ def workflow(config):
 
         with WorkflowLog(parent_log=cell_infoset.fetch('.log'), main_event={
             'type': 'measurement',
+            'event': 'finished',
             'equipment': {
                 'model': 'Megacell Charger',
                 'fw': charger_settings.fetch('.fw_version'),
