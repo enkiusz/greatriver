@@ -238,7 +238,7 @@ def main(config):
         n = ((iterations - last_new_pack_iter) // 2000) + 1
 
         # Perform n swaps
-        swaps = list(grouper(random.sample(range(len(pool)), 2*n), 2))
+        swaps = list(grouper(random.sample(range(len(pool)), 2 * n), 2))
         for (i1, i2) in swaps:
             pool[i1], pool[i2] = pool[i2], pool[i1]
 
@@ -256,7 +256,6 @@ def main(config):
             # Reverse swaps
             for (i1, i2) in swaps:
                 pool[i1], pool[i2] = pool[i2], pool[i1]
-
 
         iterations += 1
         if iterations % 1000 == 0 or time.time() - last_progress_report >= 2:
