@@ -100,8 +100,8 @@ def charger(config):
         return
 
     if config.monitor_multicast:
-        multicast_group = '224.77.99.77'
-        port = 8888
+        multicast_group = config.multicast_group
+        port = config.multicast_port
         log.info('listening for multicast status messages', multicast_group=multicast_group, port=port)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -299,6 +299,8 @@ if __name__ == '__main__':
     charger_parser.set_defaults(cmd=charger)
     charger_parser.add_argument('--read-settings', action='store_true', help='Print charger settings')
     charger_parser.add_argument('--write-settings', action=LoadJson, help='Set new charger settings')
+    charger_parser.add_argument('--multicast-group', default='224.77.99.77', help='Multicast group IP to join for status messages')
+    charger_parser.add_argument('--multicast-port', default=8888, help='Port to listen on for multicast status messages')
     charger_parser.add_argument('--monitor-multicast', action='store_true', help='Listen for and print multicast status messages from the charger')
 
     workflow_parser = subparsers.add_parser('workflow', help='Workflow commands')
