@@ -22,6 +22,13 @@ def _check_log_units(log):
     return True
 
 
+def _check_log_ts(log):
+    for entry in log:
+        if 'ts' not in entry:
+            return False
+    return True
+
+
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model': lambda infoset: not (
@@ -31,6 +38,7 @@ checks = {
         infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None
     ),
     'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
+    'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
 }
 
 
@@ -40,13 +48,17 @@ class CheckerReport(object):
         self.config = kwargs['config']
         self.log = get_logger(name=__class__.__name__)
         self.cells = defaultdict(list)
+        self.codewords = self.config.checker_codewords
+
+        if self.codewords is None:
+            self.codewords = check.keys()
 
     def process_cell(self, infoset):
         cell_id = infoset.fetch('.id')
         log = self.log.bind(id=cell_id)
-        log.debug('processing cell')
+        log.debug('processing cell', check_codewords=self.codewords)
 
-        for codeword in self.config.checker_codewords:
+        for codeword in self.codewords:
             if checks[codeword](infoset) is False:
                 self.cells[cell_id].append(codeword)
 
@@ -66,7 +78,7 @@ class CheckerReport(object):
 
 def _config_group(parser):
     group = parser.add_argument_group('checker report')
-    group.add_argument('--checker-codeword', default=sorted(checks.keys()), dest='checker_codewords', action='append',
+    group.add_argument('--checker-codeword', choices=checks.keys(), dest='checker_codewords', action='append',
         help='Only perform selected checks')
 
 
