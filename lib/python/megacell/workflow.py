@@ -48,6 +48,9 @@ class DefaultWorkflow(threading.Thread):
 
             else:
                 log.warning('failed capacity measurement', outcome=mcap_outcome)
+                self._cell_infoset.put('.props.tags.workflow_failure', True)
+                self._cell_infoset.put('.props.workflow_failure_outcome',
+                    dict(state_text=mcap_outcome['state_text'], status_text=mcap_outcome['status_text']))
 
                 status_text = mcap_outcome['status_text']
                 if status_text == StatusStrings.HOT_CHARGED or status_text == StatusStrings.HOT_DISCHARGED:
@@ -55,6 +58,9 @@ class DefaultWorkflow(threading.Thread):
 
         else:
             log.warning('failed low voltage recovery attempt', outcome=lvc_outcome)
+            self._cell_infoset.put('.props.tags.workflow_failure', True)
+            self._cell_infoset.put('.props.workflow_failure_outcome',
+                dict(state_text=mcap_outcome['state_text'], status_text=mcap_outcome['status_text']))
 
             self._cell_infoset.put('.props.tags.precharge_fail', True)
 
