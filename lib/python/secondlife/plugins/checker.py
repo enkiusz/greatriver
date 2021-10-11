@@ -50,16 +50,17 @@ def _count_mcc_workflows(log):
 
 # Each check returns True on OK and False on FAIL
 checks = {
-    'null_brand_model': lambda infoset: not (
+    'null_brand_model_not_noname': lambda infoset: not (
         infoset.fetch('.props.brand') is None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.noname') is not True
     ),
-    'only_brand': lambda infoset: not (
+    'only_brand_and_not_likelyfake': lambda infoset: not (
         infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.likely_fake') is not True
     ),
     'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
     'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
     'log_entries_without_event': lambda infoset: _check_log_event(infoset.fetch('.log')),
     'multiple_mcc_workflows': lambda infoset: _count_mcc_workflows(infoset.fetch('.log')) <= 1,
+    'path_inconsistency': lambda infoset: infoset.fetch('.path') == infoset.fetch('.log')[0]['path'],
 }
 
 
