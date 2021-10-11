@@ -110,10 +110,11 @@ class SQLAlchemy(CellDB):
             # Synthesize path from database
             if cell.container_cell_id is not None:
                 parts = [ '' ]
-                p = self.session.execute( select(Cell).where(Cell.id == cell.container_cell_id)).first()[0]
-                while p.container_cell_id is not None:
-                    parts.append(p.continer_cell_id)
-                    p = self.session.execute( select(Cell).where(Cell.id == p.container_cell_id)).first()[0]
+                p = cell.container_cell_id
+                while p is not None:
+                    parts.append(p)
+                    container_row = self.session.execute( select(Cell).where(Cell.id == p)).first()[0]
+                    p = container_row.container_cell_id
 
                 infoset.put('.path', '/'.join(parts))
             else:
