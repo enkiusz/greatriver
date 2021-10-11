@@ -11,7 +11,7 @@ pyserial==3.5
 
 # Bankster-specific
 attrs==20.3.0
-bankster==0.0.3
+bankster==0.0.4
 beautifulsoup4==4.9.3
 brother-ql==0.9.4
 CacheControl==0.12.6
@@ -43,3 +43,6 @@ typing-extensions==3.7.4.3
 tzlocal==2.1
 xdg==4.0.1
 pykeepass==3.2.0
+
+# No version lock to always install the most recent bundle
+certifi
