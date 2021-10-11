@@ -125,7 +125,9 @@ class String(object):
             for block in self.blocks:
                 block.print_info("\t")
 
-        log.info('pack layout', energy_capacity=f'{self.energy_capacity:3.1f} kWh',
+        log.info('pack layout', cells=sum([ len(b.cells) for b in self.blocks ]),
+            S=len(self.blocks), P=[ len(b.cells) for b in self.blocks ],
+            energy_capacity=f'{self.energy_capacity:3.1f} kWh',
             block_capacity_mean=f"{self.blocks_capa['mean']/1000:3.2f} Ah",
             block_capacity_divergence=f"{self.blocks_capa['stdev_pct']:3.2f} %",
             block_ir_mean=f"{self.blocks_ir['mean']:2.2f} mΩ",
