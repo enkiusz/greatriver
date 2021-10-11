@@ -37,6 +37,17 @@ def _check_log_event(log):
     return True
 
 
+def _count_mcc_workflows(log):
+    count = 0
+    for entry in log:
+        if 'equipment' not in entry:
+            continue
+
+        if entry['equipment']['model'] == 'Megacell Charger':
+            count += 1
+    return count
+
+
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model': lambda infoset: not (
@@ -48,6 +59,7 @@ checks = {
     'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
     'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
     'log_entries_without_event': lambda infoset: _check_log_event(infoset.fetch('.log')),
+    'multiple_mcc_workflows': lambda infoset: _count_mcc_workflows(infoset.fetch('.log')) <= 1,
 }
 
 
