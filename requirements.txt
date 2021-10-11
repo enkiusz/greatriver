@@ -27,7 +27,7 @@ msgpack==1.0.2
 packbits==0.6
 partsfinder==0.0.6
 Pillow==8.3.2
-Pint==0.12
+Pint==0.17
 pptree==3.1
 pycparser==2.20
 pycryptodome==3.10.1
