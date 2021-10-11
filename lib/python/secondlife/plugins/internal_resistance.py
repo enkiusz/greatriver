@@ -9,6 +9,7 @@ import pint
 
 ureg = pint.UnitRegistry(case_sensitive=False)
 
+
 class InternalResistanceReport(object):
 
     def __init__(self, **kwargs):
