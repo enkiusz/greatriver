@@ -5,7 +5,9 @@ from structlog import get_logger
 from dateutil.relativedelta import relativedelta
 import asciitable
 import json
+import pint
 
+ureg = pint.UnitRegistry(case_sensitive=False)
 
 class InternalResistanceReport(object):
 
@@ -50,11 +52,17 @@ class InternalResistance(object):
             # Search for RC3563, the the last IR measurement if this is not found
             rc3563_measurements = list(filter(lambda m: m['equipment']['model'] == 'RC3563', ir_measurements))
             if len(rc3563_measurements) > 0:
-                ir_measurement = rc3563_measurements[-1]  # Last measurement is the newest one
+                last_measurement = rc3563_measurements[-1]  # Last measurement is the newest one
             else:
-                ir_measurement = ir_measurements[-1]  # Last measurement is the newest one
+                last_measurement = ir_measurements[-1]  # Last measurement is the newest one
 
-            return ir_measurement['results']['IR']
+            # Convert to alway be represented in milliohms
+            ir_measurement = last_measurement['results']['IR']
+            ir_quantity = ir_measurement['v'] * ureg.parse_units(ir_measurement['u'])
+            ir_measurement['u'] = 'mOhm'
+            ir_measurement['v'] = ir_quantity.to('mOhm').magnitude
+
+            return ir_measurement
         except Exception as e:
             return None
 
