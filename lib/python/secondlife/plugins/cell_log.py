@@ -28,12 +28,14 @@ def _format_results(results):
     r = []
     for (name, value) in results.items():
         try:
-            r.append(f"{name}={value['v']}{value.get('u')}")
+            r.append(f"{name}={round(value['v'],3)}{value.get('u')}")
         except Exception:
             # No 'v' or 'u' key, print as plain value
             r.append(f"{name}={value!r}")
-
-    return ' '.join(r)
+    if len(r) == 0:
+        return 'NO RESULTS'
+    else:
+        return ' '.join(r)
 
 
 def _print_keys(data: dict, keys: list):
@@ -67,7 +69,7 @@ class LogReport(object):
                 m.get('type', 'NO TYPE CODE'),
                 m.get('event', 'NO EVENT CODE'),
                 _print_keys(m.get('equipment', {}), ('model', 'selector')),
-                _format_results(m.get('results')) if m.get('results') else str(m),
+                _format_results(m['results']) if 'results' in m else str(m),
             ] for m in measurement_log
         ]
 
