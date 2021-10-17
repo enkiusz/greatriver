@@ -125,13 +125,14 @@ class String(object):
             for block in self.blocks:
                 block.print_info("\t")
 
-        log.info('pack layout', cells=sum([ len(b.cells) for b in self.blocks ]),
+        log.info('string layout', cells=sum([ len(b.cells) for b in self.blocks ]),
             S=len(self.blocks), P=[ len(b.cells) for b in self.blocks ],
             energy_capacity=f'{self.energy_capacity:3.1f} kWh',
             block_capacity_mean=f"{self.blocks_capa['mean']/1000:3.2f} Ah",
-            block_capacity_divergence=f"{self.blocks_capa['stdev_pct']:3.2f} %",
+            interblock_capacity_stdev=f"{self.blocks_capa['stdev_pct']:3.2f} %",
             block_ir_mean=f"{self.blocks_ir['mean']:2.2f} mΩ",
-            block_ir_divergence=f"{self.blocks_ir['stdev_pct']:3.2f} %")
+            interblock_ir_stdev=f"{self.blocks_ir['stdev_pct']:3.2f} %",
+            intrablock_ir_stdev_max=f"{max([block.ir['stdev_pct'] for block in self.blocks]):3.2f} %")
 
 
 def improved(string_before, string_after):
@@ -139,14 +140,22 @@ def improved(string_before, string_after):
     Return True if the string_after has parameters better than string_before
     """
 
-    if string_before.blocks_capa['stdev_pct'] > 0.2:
-        if string_after.blocks_capa['stdev_pct'] > string_before.blocks_capa['stdev_pct']:
-            return False
+    block_ir_stdevs_before = [ block.ir['stdev_pct'] for block in string_before.blocks ]
+    block_ir_stdevs_after = [ block.ir['stdev_pct'] for block in string_after.blocks ]
 
-    if string_after.blocks_ir['stdev_pct'] > string_before.blocks_ir['stdev_pct']:
-        return False
+    if max(block_ir_stdevs_before) > 15:
+        if max(block_ir_stdevs_after) < max(block_ir_stdevs_before):
+            log.debug('max ir stdev for all blocks improved',
+                before=max(block_ir_stdevs_before), after=max(block_ir_stdevs_after))
+            return True
 
-    return True
+    if string_before.blocks_capa['stdev_pct'] > 2:
+        if string_after.blocks_capa['stdev_pct'] < string_before.blocks_capa['stdev_pct']:
+            log.debug('capa stdev between blocks improved',
+                before=string_before.blocks_capa['stdev_pct'], after=string_after.blocks_capa['stdev_pct'])
+            return True
+
+    return False
 
 
 def stop(string):
@@ -154,12 +163,12 @@ def stop(string):
     Return True if the string layout is good enough.
     """
 
-    if string.blocks_capa['stdev_pct'] > 0.5:
-        # Divergence between capacity of each block is > 0.5 %
+    if any([ block.ir['stdev_pct'] > 10 for block in string.blocks ]):
+        # IR stdev in any block is > 10%
         return False
 
-    if string.blocks_ir['stdev_pct'] > 5:
-        # Divergence between the internal resistance of each block is > 5 %
+    if string.blocks_capa['stdev_pct'] > 1:
+        # Divergence between capacity of each block is > 1 %
         return False
 
     return True
@@ -237,9 +246,10 @@ def main(config):
     last_new_pack_iter = 0
 
     while True:
-        n = ((iterations - last_new_pack_iter) // 2000) + 1
+        n = iterations // 100 + 1
 
         # Perform n swaps
+        log.debug('swapping cells', n=n)
         swaps = list(grouper(random.sample(range(len(pool)), 2 * n), 2))
         for (i1, i2) in swaps:
             pool[i1], pool[i2] = pool[i2], pool[i1]
@@ -247,12 +257,14 @@ def main(config):
         new_string = build_string(pool, config.S, config.P, config)
 
         if improved(string, new_string):
-            if config.loglevel == 'DEBUG':
-                cls()
+            log.info('improved pack found', iterations=iterations)
+
+            # if config.loglevel == 'DEBUG':
+            #     cls()
             string.print_info(verbose=True if config.loglevel == 'DEBUG' else False)
 
             last_new_pack = time.time()
-            last_new_pack_iter = iterations
+            iterations = 0
             string = new_string
         else:
             # Reverse swaps
@@ -295,8 +307,8 @@ if __name__ == "__main__":
     group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
     group.add_argument('--optimizer-timeout', metavar='SEC', default=60, type=float,
         help='Finish optimizer when a better solution is not found in SEC seconds')
-    group.add_argument('--total-timeout', metavar='SEC', default=300, type=float,
-        help='Finish optimizer after SEC seconds')
+    group.add_argument('--total-timeout', metavar='SEC', default=1200, type=float,
+        help='Unconditionally finish the optimizer after SEC seconds')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
