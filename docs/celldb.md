@@ -293,3 +293,10 @@ Select all "likely fake" no-name Samsung cells that can still be re-used.
 
 .props.brand == "SAMSUNG" and .state.self_discharge.assessment == "PASS" and .props.tags.likely_fake == true and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not)
 
+Select the above plus 'noname' cells.
+
+'.state.self_discharge.assessment == "PASS" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not)'
+
+Select the above plus 'noname' cells and restrict maximum IR.
+
+'.state.self_discharge.assessment == "PASS" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 100'
