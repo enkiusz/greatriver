@@ -69,7 +69,7 @@ class LogReport(object):
                 m.get('type', 'NO TYPE CODE'),
                 m.get('event', 'NO EVENT CODE'),
                 _print_keys(m.get('equipment', {}), ('model', 'selector')),
-                _format_results(m['results']) if 'results' in m else str(m),
+                _format_results(m['results']) if 'results' in m else str({ k: v for (k, v) in m.items() if k not in ('ts', 'type', 'event')}),
             ] for m in measurement_log
         ]
 
@@ -79,7 +79,7 @@ class LogReport(object):
             for (id, rows) in self.cells.items():
                 print(f"=== Log for {id}")
                 if len(rows) > 0:
-                    asciitable.write(rows, names=['Timestamp', 'Type', 'Event', 'Equipment', 'Results'],
+                    asciitable.write(rows, names=['Timestamp', 'Type', 'Event', 'Equipment', 'Data'],
                         formats={'Timestamp': '%s', 'Type': '%s', 'Event': '%s', 'Equipment': '%s', 'Results': '%s'}, Writer=asciitable.FixedWidth)
                 else:
                     print("LOG EMPTY")
