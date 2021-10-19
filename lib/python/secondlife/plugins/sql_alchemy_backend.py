@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from collections import defaultdict
 from copy import deepcopy
+import time
 
 from sqlalchemy import select, create_engine, Table, Column, Integer, String, LargeBinary, Float, JSON, ForeignKey
 from sqlalchemy.orm import Session, declarative_base, relationship
@@ -175,6 +176,25 @@ class SQLAlchemy(CellDB):
 
         self.session.flush()
         self.session.commit()
+
+    def move(self, id: str, destination: str):
+        log.info('moving cell', id=id, destination=destination)
+
+        if not self.path_valid(destination):
+            log.error('path not valid', path=destination)
+            raise RuntimeError('path not valid')
+
+        infoset = self.fetch(id)
+
+        # Change .path and put in new location
+        infoset.fetch('.log').append({
+            'ts': time.time(),
+            'type': 'lifecycle',
+            'event': 'move',
+            'path': dict(old=infoset.fetch('.path'), new=destination)
+        })
+        infoset.put('.path', destination)
+        self.put(infoset)
 
     def find(self) -> Infoset:
 
