@@ -32,6 +32,14 @@ def init(config):
     backend.init()
 
 
+def _different_backends_selected(config):
+
+    if (config.src_backend != config.dest_backend) or (config.src_dsn != config.dest_dsn):
+        return True
+    else:
+        return False
+
+
 def etl(config):
 
     src_backend = v1.celldb_backends[config.src_backend](dsn=config.src_dsn, config=config)
@@ -42,6 +50,13 @@ def etl(config):
     for infoset in selected_cells(backend=src_backend, config=config):
         for codeword in config.infoset_transforms:
             infoset = v1.infoset_transforms[codeword](infoset, config)
+
+        if _different_backends_selected(config):
+            parent_cells = [ p for p in infoset.fetch('.path').split('/') if len(p) > 0]
+            log.debug('parent cells', id=infoset.fetch('.id'), parent_cells=parent_cells)
+
+            for cell_id in parent_cells:
+                dest_backend.put( src_backend.fetch(cell_id) )
 
         dest_backend.put(infoset)
 
