@@ -72,7 +72,7 @@ def selected_cells(config, backend):
         infoset = backend.fetch(id)
         if not infoset:
             if config.autocreate is True:
-                infoset = backend.create(id=id, path=getattr(config, 'path', '/'))
+                infoset = backend.create(id=id, path=config.path or '/')
 
                 backend.put(infoset)
 

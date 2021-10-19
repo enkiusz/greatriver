@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import json
+import shutil
+import time
 
 from structlog import get_logger
 from secondlife.plugins.api import v1
@@ -28,6 +30,19 @@ class JsonFiles(CellDB):
 
     def __repr__(self):
         return f'JsonFiles/{repr(self.basepath)}'
+
+    def _locate(self, id: str) -> (Path, Infoset):
+        self.log.debug('locating cell', id=id)
+
+        for path in self.basepath.glob('**/meta.json'):
+            try:
+                infoset = self._load_cell_infoset(path)
+                if infoset.fetch('.id') == id:
+                    return (path.parent, infoset)
+            except Exception as e:
+                pass
+        else:
+            return (None, None)
 
     def _load_cell_infoset(self, location: Path) -> Infoset:
         infoset = Infoset()
@@ -91,15 +106,8 @@ class JsonFiles(CellDB):
     def fetch(self, id: str) -> Infoset:
         self.log.info('searching for cell', id=id)
 
-        for path in self.basepath.glob('**/meta.json'):
-            try:
-                infoset = self._load_cell_infoset(path)
-                if infoset.fetch('.id') == id:
-                    return infoset
-            except Exception as e:
-                pass
-        else:
-            return None
+        (location, infoset) = self._locate(id)
+        return infoset
 
     def put(self, infoset: Infoset):
         self.log.info('storing cell', cell_id=infoset.fetch('.id'), path=infoset.fetch('.path'))
@@ -123,6 +131,28 @@ class JsonFiles(CellDB):
         for extra in infoset.fetch('.extra'):
             # TODO: Restore file ctime and mtime from props
             location.joinpath(extra['name']).write_bytes(extra['content'])
+
+    def move(self, id: str, destination: str):
+        self.log.info('moving cell', id=id, destination=destination)
+
+        if not self.path_valid(destination):
+            self.log.error('path not valid', path=destination)
+            raise RuntimeError('path not valid')
+
+        (location, infoset) = self._locate(id)
+
+        # Change .path and put in new location
+        infoset.fetch('.log').append({
+            'ts': time.time(),
+            'type': 'lifecycle',
+            'event': 'move',
+            'path': dict(old=infoset.fetch('.path'), new=destination)
+        })
+        infoset.put('.path', destination)
+        self.put(infoset)
+
+        # Remove old location
+        shutil.rmtree(location)
 
     def find(self) -> Infoset:  # Generator
 

@@ -82,6 +82,10 @@ def main(config):
 
         backend.put(infoset)
 
+        # Move cell if requested
+        if config.path is not None and (infoset.fetch('.path') != config.path):
+            backend.move(id, config.path)
+
 
 def store_as_property(property_path):
     class customAction(argparse.Action):
