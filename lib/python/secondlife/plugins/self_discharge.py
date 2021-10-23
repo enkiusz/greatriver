@@ -92,7 +92,7 @@ class SelfDischargeCheckResult(object):
 
                     continue
 
-                if ocv_measurement['results']['OCV']['v'] < 3.9:
+                if ocv_measurement['results']['OCV']['v'] < 4:
                     result = 'FAIL'
                 else:
                     result = 'PASS'
