@@ -35,7 +35,7 @@ def main(config):
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
     # Build objects for all reports
-    reports = [ v1.reports[codeword].handler_class(config=config) for codeword in config.reports ]
+    reports = [ v1.reports[codeword].handler_class(config=config, backend=backend) for codeword in config.reports ]
 
     for infoset in selected_cells(config=config, backend=backend):
         for report in reports:

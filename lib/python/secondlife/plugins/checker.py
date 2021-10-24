@@ -48,19 +48,39 @@ def _count_mcc_workflows(log):
     return count
 
 
+def _check_paths(backend, infoset):
+    for e in infoset.fetch('.log'):
+        if 'path' in e:
+            p = e['path']
+            if p is None:
+                return False
+
+            if hasattr(p, 'values'):
+                if 'old' in p:
+                    if not backend.path_valid(p['old']):
+                        return False
+                if 'new' in p:
+                    if not backend.path_valid(p['new']):
+                        return False
+            else:
+                if not backend.path_valid(p):
+                    return False
+    return True
+
 # Each check returns True on OK and False on FAIL
 checks = {
-    'null_brand_model_not_noname': lambda infoset: not (
+    'null_brand_model_not_noname': lambda backend, infoset: not (
         infoset.fetch('.props.brand') is None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.noname') is not True
     ),
-    'only_brand_and_not_likelyfake': lambda infoset: not (
+    'only_brand_and_not_likelyfake': lambda backend, infoset: not (
         infoset.fetch('.props.brand') is not None and infoset.fetch('.props.model') is None and infoset.fetch('.props.tags.likely_fake') is not True
     ),
-    'unit_instead_of_u': lambda infoset: _check_log_units(infoset.fetch('.log')),
-    'log_entries_without_ts': lambda infoset: _check_log_ts(infoset.fetch('.log')),
-    'log_entries_without_event': lambda infoset: _check_log_event(infoset.fetch('.log')),
-    'multiple_mcc_workflows': lambda infoset: _count_mcc_workflows(infoset.fetch('.log')) <= 1,
-    'path_inconsistency': lambda infoset: infoset.fetch('.path') == infoset.fetch('.log')[0]['path'],
+    'unit_instead_of_u': lambda backend, infoset: _check_log_units(infoset.fetch('.log')),
+    'log_entries_without_ts': lambda backend, infoset: _check_log_ts(infoset.fetch('.log')),
+    'log_entries_without_event': lambda backend, infoset: _check_log_event(infoset.fetch('.log')),
+    'multiple_mcc_workflows': lambda backend, infoset: _count_mcc_workflows(infoset.fetch('.log')) <= 1,
+    'path_inconsistency': lambda backend, infoset: infoset.fetch('.path') == infoset.fetch('.log')[0]['path'],
+    'paths_invalid': lambda backend, infoset: _check_paths(backend, infoset),
 }
 
 
@@ -68,6 +88,7 @@ class CheckerReport(object):
 
     def __init__(self, **kwargs):
         self.config = kwargs['config']
+        self.backend = kwargs.get('backend', None)
         self.log = get_logger(name=__class__.__name__)
         self.cells = defaultdict(list)
         self.codewords = self.config.checker_codewords
@@ -81,7 +102,7 @@ class CheckerReport(object):
         log.debug('processing cell', check_codewords=self.codewords)
 
         for codeword in self.codewords:
-            if checks[codeword](infoset) is False:
+            if checks[codeword](backend=self.backend, infoset=infoset) is False:
                 self.cells[cell_id].append(codeword)
 
     def report(self, format='ascii'):
