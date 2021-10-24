@@ -73,7 +73,7 @@ class Lii500Meter(object):
 
         if lcd_state.get('ir', None) is not None:
             (ir_v, ir_u) = lcd_state['ir'].split()
-            result['results']['ir'] = dict(u='mOhm', v=float(ir_v))
+            result['results']['IR'] = dict(u='mOhm', v=float(ir_v))
 
         return result
 
