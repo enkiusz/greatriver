@@ -13,6 +13,11 @@ class Bucket(object):
     def fetch(self, path, default=None):
         (prefix, num) = self._cell.fetch('.id').split('~')
 
+        if prefix is None or num is None:
+            return None
+        if len(num) < 3:
+            return None
+
         return f'{num[0:2]}{_odd_even(int(num[2]))}'
 
 
