@@ -31,11 +31,13 @@ class InfosetReport(object):
         if len(self.config.infoset_queries) > 0:
             # Apply the jq queries if defined
             for query in self.config.infoset_queries:
-                result = query.input(text=json_text).text()
-                self.cells[infoset.fetch('.id')].append( result )
+                result = query.input(text=json_text).first()
+                if result is None:
+                    result = 'null'
+                self.cells[ self.config.sort_query.input(text=json_text).first() ].append( result )
                 log.debug('jq query result', id=infoset.fetch('.id'), result=result, query=query)
         else:
-            self.cells[infoset.fetch('.id')] = [ json_text ]
+            self.cells[ self.config.sort_query.input(text=json_text).first() ] = [ json_text ]
 
     def report(self, format='ascii'):
         if format != 'ascii':
@@ -48,8 +50,8 @@ class InfosetReport(object):
 
         if len(self.config.infoset_queries) > 0:
             asciitable.write([ [id] + [ result for result in self.cells[id] ] for id in sorted(self.cells.keys()) ],
-                names=['Cell ID'] + [ query.program_string for query in self.config.infoset_queries ],
-                formats={ 'Cell ID': '%s' },
+                names=[f'{self.config.sort_query.program_string}'] + [ query.program_string for query in self.config.infoset_queries ],
+                formats={ f'{self.config.sort_query.program_string}': '%s' },
                 Writer=asciitable.FixedWidth)
         else:
             for (id, item) in self.cells.items():
@@ -59,6 +61,7 @@ class InfosetReport(object):
 
 def _config_group(parser):
     group = parser.add_argument_group('infoset report')
+    group.add_argument('--sort-query', default=jq.compile('.id'), action=CompileJQ, help='Select query used as sorting value')
     group.add_argument('--infoset-query', default=[], dest='infoset_queries', action=CompileJQAndAppend,
         help='Apply a JQ query to the infoset and print the result, use https://stedolan.github.io/jq/ syntax.')
 
