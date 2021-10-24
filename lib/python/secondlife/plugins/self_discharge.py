@@ -7,36 +7,6 @@ import asciitable
 log = get_logger()
 
 
-class SelfDischargeReport(object):
-
-    def __init__(self, **kwargs):
-        self.config = kwargs['config']
-        self.log = get_logger()
-        self.data = {}
-
-    def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.id'))
-        log.debug('processing cell')
-
-        sd_check_res = infoset.fetch('.state.self_discharge.sd_check_result')
-        if sd_check_res is not None:
-            self.data[infoset.fetch('.id')] = sd_check_res
-        else:
-            log.debug('no self-discharge check result')
-
-    def report(self, format='ascii'):
-        if format == 'ascii':
-            if len(self.data.keys()) > 0:
-                asciitable.write([ (id, sd_check_result) for (id, sd_check_result) in self.data.items() ],
-                    names=['Cell ID', 'Check result'],
-                    formats={ 'Cell ID': '%s', 'Check result': '%s'},
-                    Writer=asciitable.FixedWidth)
-            else:
-                self.log.warning('no data')
-        else:
-            log.error('unknown report format', format=format)
-
-
 class SelfDischargeCheckResult(object):
     def __init__(self, **kwargs):
         self._cell = kwargs['cell']
@@ -107,4 +77,3 @@ class SelfDischargeCheckResult(object):
 
 
 v1.register_state_var('self_discharge.assessment', SelfDischargeCheckResult)
-v1.register_report(v1.Report('self_discharge', SelfDischargeReport))
