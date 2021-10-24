@@ -53,6 +53,15 @@ class SelfDischargeCheckResult(object):
             log.debug('capacity measurement', m=last_capacity_measurement)
             log.debug('ocv measurements', m=ocv_measurements)
 
+            # Self-discharge data:
+            #
+            # For fully charged cells:
+            #
+            # After a full charge (4.2V) a healthy cell's voltage first drops quickly from to 4.15 V within 8h. After that the voltage drop
+            # is constant and around 7mV/day
+            #
+            # Reference: https://batteryuniversity.com/article/bu-802b-what-does-elevated-self-discharge-do
+
             result = None
             for ocv_measurement in ocv_measurements:
                 T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
