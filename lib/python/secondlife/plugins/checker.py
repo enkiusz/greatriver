@@ -67,6 +67,19 @@ def _check_paths(backend, infoset):
                     return False
     return True
 
+
+def _check_log_ir_spelling(infoset):
+    for e in infoset.fetch('.log'):
+        if 'results' not in e:
+            continue
+
+        r = e['results']
+        if 'ir' in r:
+            return False
+
+    return True
+
+
 # Each check returns True on OK and False on FAIL
 checks = {
     'null_brand_model_not_noname': lambda backend, infoset: not (
@@ -81,6 +94,7 @@ checks = {
     'multiple_mcc_workflows': lambda backend, infoset: _count_mcc_workflows(infoset.fetch('.log')) <= 1,
     'path_inconsistency': lambda backend, infoset: infoset.fetch('.path') == infoset.fetch('.log')[0]['path'],
     'paths_invalid': lambda backend, infoset: _check_paths(backend, infoset),
+    'lowercase_ir_result': lambda backend, infoset: _check_log_ir_spelling(infoset),
 }
 
 
