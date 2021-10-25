@@ -25,6 +25,15 @@ class SelfDischargeCheckResult(object):
         else:
             return False
 
+    # Self-discharge data:
+    #
+    # For fully charged cells:
+    #
+    # After a full charge (4.2V) a healthy cell's voltage first drops quickly from to 4.15 V within 8h. After that the voltage drop
+    # is constant and around 7mV/day
+    #
+    # Reference: https://batteryuniversity.com/article/bu-802b-what-does-elevated-self-discharge-do
+    #
     def fetch(self, path, default=None):
         try:
             event_log = self._cell.fetch('.log')
@@ -40,49 +49,54 @@ class SelfDischargeCheckResult(object):
                 return None
             last_capacity_measurement = measurement_log[last_capacity_measurement_idx]
 
+            # If no OCV after capacity measurement assume 4.2V (full charge)
+            #
+            ocv1 = (4.2, last_capacity_measurement['ts'])
+            if 'OCV' in last_capacity_measurement['results']:
+                ocv1 = (last_capacity_measurement['results']['OCV']['v'], last_capacity_measurement['ts'])
+
+            # If OCV was 4.2 after capacity measurement assume voltage drops to 4.15 V within 8h and start from there
+            if ocv1[0] == 4.2:
+                ocv1 = (4.15, ocv1[1] + 8 * 3600)
+
             # Now search for the OCV measurements after capacity measurement
-            # (assume the cell was charged up to 100% during the capacity measurement)
             ocv_measurements = list(
-                filter( lambda m: SelfDischargeCheckResult._ocv_measurement(m), measurement_log[last_capacity_measurement_idx:] )
+                filter( lambda m: SelfDischargeCheckResult._ocv_measurement(m), measurement_log[last_capacity_measurement_idx + 1:] )
             )
 
             if len(ocv_measurements) == 0:
                 log.debug('no OCV measurement after capacity measurement', id=self._cell.fetch('.id'))
                 return None
 
-            log.debug('capacity measurement', m=last_capacity_measurement)
+            log.debug('capacity measurement', m=last_capacity_measurement, ocv1=ocv1)
             log.debug('ocv measurements', m=ocv_measurements)
-
-            # Self-discharge data:
-            #
-            # For fully charged cells:
-            #
-            # After a full charge (4.2V) a healthy cell's voltage first drops quickly from to 4.15 V within 8h. After that the voltage drop
-            # is constant and around 7mV/day
-            #
-            # Reference: https://batteryuniversity.com/article/bu-802b-what-does-elevated-self-discharge-do
 
             result = None
             for ocv_measurement in ocv_measurements:
-                T = (ocv_measurement['ts'] - last_capacity_measurement.get('ts', 0)) / (3600 * 24)
+                T = (ocv_measurement['ts'] - ocv1[1]) / (3600 * 24)
                 if T < 21:
                     log.debug('not enough days between capacity and OCV measurement', id=self._cell.fetch('.id'), T=T,
                         ocv_measurement=ocv_measurement)
 
                     continue
 
-                if ocv_measurement['results']['OCV']['v'] < 4:
+                # Calculate voltage drop in mV / day
+                voltage_drop = (ocv_measurement['results']['OCV']['v'] - ocv1[0]) * 1000
+                voltage_drop = voltage_drop / T
+
+                # Acceptable voltage drop is 7 mV / day
+                if voltage_drop < -7:
                     result = 'FAIL'
                 else:
                     result = 'PASS'
 
-            log.debug('self-discharge check', id=self._cell.fetch('.id'), result=result)
+            log.debug('self-discharge check', id=self._cell.fetch('.id'), voltage_drop=f'{voltage_drop:.2f} mV/day', result=result)
 
-            return result
+            return dict(assessment=result, v=voltage_drop, u='mV/day')
 
         except Exception as e:
             log.error('exception', _exc_info=e)
             return None
 
 
-v1.register_state_var('self_discharge.assessment', SelfDischargeCheckResult)
+v1.register_state_var('self_discharge', SelfDischargeCheckResult)
