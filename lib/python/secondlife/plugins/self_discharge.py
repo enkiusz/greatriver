@@ -71,6 +71,7 @@ class SelfDischargeCheckResult(object):
             log.debug('capacity measurement', m=last_capacity_measurement, ocv1=ocv1)
             log.debug('ocv measurements', m=ocv_measurements)
 
+            voltage_drop = None
             result = None
             for ocv_measurement in ocv_measurements:
                 T = (ocv_measurement['ts'] - ocv1[1]) / (3600 * 24)
@@ -90,7 +91,7 @@ class SelfDischargeCheckResult(object):
                 else:
                     result = 'PASS'
 
-            log.debug('self-discharge check', id=self._cell.fetch('.id'), voltage_drop=f'{voltage_drop:.2f} mV/day', result=result)
+            log.debug('self-discharge check', id=self._cell.fetch('.id'), voltage_drop=f'{voltage_drop} mV/day', result=result)
 
             return dict(assessment=result, v=voltage_drop, u='mV/day')
 
