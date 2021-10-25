@@ -6,6 +6,7 @@ from secondlife.plugins.api import v1
 def _odd_even(d):
     return 'P' if d % 2 == 0 else 'N'
 
+
 class Bucket(object):
     def __init__(self, **kwargs):
         self._cell = kwargs['cell']
