@@ -49,7 +49,7 @@ class InfosetReport(object):
             return
 
         if len(self.config.infoset_queries) > 0:
-            asciitable.write([ [id] + [ result for result in self.cells[id] ] for id in sorted(self.cells.keys()) ],
+            asciitable.write([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys()) ],
                 names=[f'{self.config.sort_query.program_string}'] + [ query.program_string for query in self.config.infoset_queries ],
                 formats={ f'{self.config.sort_query.program_string}': '%s' },
                 Writer=asciitable.FixedWidth)
