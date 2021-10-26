@@ -85,8 +85,8 @@ class SelfDischargeCheckResult(object):
                 voltage_drop = (ocv_measurement['results']['OCV']['v'] - ocv1[0]) * 1000
                 voltage_drop = voltage_drop / T
 
-                # Acceptable voltage drop is 7 mV / day
-                if voltage_drop < -7:
+                # Acceptable voltage drop is 8 mV / day
+                if voltage_drop < -8:
                     result = 'FAIL'
                 else:
                     result = 'PASS'
