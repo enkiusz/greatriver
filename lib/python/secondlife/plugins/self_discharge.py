@@ -55,8 +55,9 @@ class SelfDischargeCheckResult(object):
             if 'OCV' in last_capacity_measurement['results']:
                 ocv1 = (last_capacity_measurement['results']['OCV']['v'], last_capacity_measurement['ts'])
 
-            # If OCV was 4.2 after capacity measurement assume voltage drops to 4.15 V within 8h and start from there
-            if ocv1[0] == 4.2:
+            # If the cell has been fully charged after capacity measurement assume voltage drops to 4.15 V within 8h and
+            # start from there
+            if ocv1[0] >= 4.15:
                 ocv1 = (4.15, ocv1[1] + 8 * 3600)
 
             # Now search for the OCV measurements after capacity measurement
