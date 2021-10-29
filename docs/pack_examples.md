@@ -350,3 +350,20 @@ STR~3496492031	capa[sum   735 Ah, mean 73.45, stdev 78.66730 mAh (0.11 %)]	IR[ma
 2021-10-07 23:10.41 [info     ] pack layout                    energy_capacity=2.64 kWh
 ➜  greatriver git:(master) ✗ 
 
+➜  ~ pack.py --match '.state.self_discharge.assessment == "PASS" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 110' -S 10 -a
+
+STR~0783121006	capa[sum   920 Ah, mean 92.02, stdev 1590.49984 mAh (1.73 %)]	IR[max 0.79 mΩ, mean 0.77, stdev 0.01574 (2.05 %)]
+	BL~4878908573	81P	capa[sum 91057 mAh, mean 1124.16 stdev 371.98 (33.1 %)]	IR[parallel 0.77 mΩ, mean 66.62, stdev 14.50 mΩ (21.8 %)]
+	BL~1854442559	81P	capa[sum 92593 mAh, mean 1143.12 stdev 361.98 (31.7 %)]	IR[parallel 0.76 mΩ, mean 65.72, stdev 14.30 mΩ (21.8 %)]
+	BL~3418197688	81P	capa[sum 91547 mAh, mean 1130.21 stdev 359.80 (31.8 %)]	IR[parallel 0.76 mΩ, mean 65.23, stdev 14.19 mΩ (21.8 %)]
+	BL~7166902130	81P	capa[sum 90182 mAh, mean 1113.36 stdev 374.06 (33.6 %)]	IR[parallel 0.79 mΩ, mean 68.62, stdev 14.91 mΩ (21.7 %)]
+	BL~9866488823	81P	capa[sum 94588 mAh, mean 1167.75 stdev 375.87 (32.2 %)]	IR[parallel 0.75 mΩ, mean 64.76, stdev 14.01 mΩ (21.6 %)]
+	BL~4707750159	81P	capa[sum 93085 mAh, mean 1149.20 stdev 371.97 (32.4 %)]	IR[parallel 0.77 mΩ, mean 66.14, stdev 14.37 mΩ (21.7 %)]
+	BL~2318557251	81P	capa[sum 90479 mAh, mean 1117.02 stdev 325.72 (29.2 %)]	IR[parallel 0.76 mΩ, mean 65.57, stdev 14.27 mΩ (21.8 %)]
+	BL~6977988664	81P	capa[sum 94392 mAh, mean 1165.33 stdev 356.73 (30.6 %)]	IR[parallel 0.75 mΩ, mean 64.47, stdev 14.03 mΩ (21.8 %)]
+	BL~9147059487	81P	capa[sum 90567 mAh, mean 1118.11 stdev 316.44 (28.3 %)]	IR[parallel 0.78 mΩ, mean 66.02, stdev 14.37 mΩ (21.8 %)]
+	BL~0339350970	81P	capa[sum 91758 mAh, mean 1132.81 stdev 338.36 (29.9 %)]	IR[parallel 0.79 mΩ, mean 66.85, stdev 14.52 mΩ (21.7 %)]
+
+## A pack for a UPS (self-discharge is not critical)
+
+pack.py --match '.state.self_discharge.assessment == "FAIL" and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 110' -S 4 -a
