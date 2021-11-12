@@ -117,7 +117,7 @@ class SQLAlchemy(CellDB):
                     container_row = self.session.execute( select(Cell).where(Cell.id == p)).first()[0]
                     p = container_row.container_cell_id
 
-                infoset.put('.path', '/'.join(parts))
+                infoset.put('.path', '/'.join([''] + list(reversed(parts))))
             else:
                 infoset.put('.path', '/')
 
