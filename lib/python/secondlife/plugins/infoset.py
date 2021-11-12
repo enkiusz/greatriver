@@ -21,12 +21,15 @@ class InfosetReport(object):
         self.config = kwargs['config']
         self.log = get_logger(name=__class__.__name__)
         self.cells = defaultdict(list)
+        self.sort_results = dict()
 
     def process_cell(self, infoset):
-        log = self.log.bind(id=infoset.fetch('.id'))
+        cell_id = infoset.fetch('.id')
+        log = self.log.bind(id=cell_id)
         log.debug('processing cell')
 
         json_text = infoset.to_json(indent=2)
+        self.sort_results[ cell_id ] = self.config.sort_query.input(text=json_text).first()
 
         if len(self.config.infoset_queries) > 0:
             # Apply the jq queries if defined
@@ -34,8 +37,8 @@ class InfosetReport(object):
                 result = query.input(text=json_text).first()
                 if result is None:
                     result = 'null'
-                self.cells[ self.config.sort_query.input(text=json_text).first() ].append( result )
-                log.debug('jq query result', id=infoset.fetch('.id'), result=result, query=query)
+                self.cells[ cell_id ].append( result )
+                log.debug('jq query result', id=cell_id, result=result, query=query)
         else:
             self.cells[ self.config.sort_query.input(text=json_text).first() ] = [ json_text ]
 
@@ -49,8 +52,8 @@ class InfosetReport(object):
             return
 
         if len(self.config.infoset_queries) > 0:
-            asciitable.write([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys()) ],
-                names=[f'{self.config.sort_query.program_string}'] + [ query.program_string for query in self.config.infoset_queries ],
+            asciitable.write([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys(), key=lambda key: self.sort_results[key]) ],  # noqa
+                names=['.id'] + [ query.program_string for query in self.config.infoset_queries ],
                 formats={ f'{self.config.sort_query.program_string}': '%s' },
                 Writer=asciitable.FixedWidth)
         else:
