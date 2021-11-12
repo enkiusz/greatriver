@@ -300,3 +300,7 @@ Select the above plus 'noname' cells.
 Select the above plus 'noname' cells and restrict maximum IR.
 
 '.state.self_discharge.assessment == "PASS" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 100'
+
+Select cells which have not yet been junked:
+
+info.py -R infoset --infoset-query .state.bucket --infoset-query .props.tags --sort-query .state.bucket --match '(.props.tags.corrosion == true or .props.tags.electrolyte_leak == true or .props.tags.case_punctured == true or .props.tags.case_deformed == true) and (.props.tags.lost == true | not) and .path != "/JUNK"' -a
