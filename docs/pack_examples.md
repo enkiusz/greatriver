@@ -364,6 +364,30 @@ STR~0783121006	capa[sum   920 Ah, mean 92.02, stdev 1590.49984 mAh (1.73 %)]	IR[
 	BL~9147059487	81P	capa[sum 90567 mAh, mean 1118.11 stdev 316.44 (28.3 %)]	IR[parallel 0.78 mΩ, mean 66.02, stdev 14.37 mΩ (21.8 %)]
 	BL~0339350970	81P	capa[sum 91758 mAh, mean 1132.81 stdev 338.36 (29.9 %)]	IR[parallel 0.79 mΩ, mean 66.85, stdev 14.52 mΩ (21.7 %)]
 
+
+➜  greatriver git:(master) ✗ pack.py --match '.state.self_discharge.assessment == "PASS" and .state.usable_capacity != null and .state.internal_resistance != null and (.props.tags.workflow_failure == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_head == true | not) and .path == "/STOCK/RACK~0768983590/" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and .state.internal_resistance.v < 110' -S 10 -P 80 -a
+
+Initial layout:
+2021-11-12 21:38.59 [info     ] string layout                  P=[80, 80, 80, 80, 80, 80, 80, 80, 80, 80] S=10 block_capacity_mean=102.14 Ah block_ir_mean=0.68 mΩ cells=800 energy_capacity=3.7 kWh interblock_capacity_stdev=0.48 % interblock_ir_stdev=3.07 % intrablock_ir_stdev_max=28.19 %
+
+Final layout:
+2021-11-12 21:58.57 [info     ] optimization finished
+STR~2689936470	10S	capa[sum   988 Ah, mean 98.81, stdev 1413.16686 mAh (1.43 %)]	IR[max 0.73 mΩ, mean 0.70, stdev 0.01997 (2.87 %)]
+	BL~2418779294	80P	capa[sum 96663 mAh, mean 1208.29 stdev 401.08 (33.2 %)]	IR[parallel 0.69 mΩ, mean 61.57, stdev 14.49 mΩ (23.5 %)]
+	BL~5918828483	80P	capa[sum 97689 mAh, mean 1221.11 stdev 356.89 (29.2 %)]	IR[parallel 0.69 mΩ, mean 61.32, stdev 13.86 mΩ (22.6 %)]
+	BL~9356836827	80P	capa[sum 100354 mAh, mean 1254.43 stdev 428.20 (34.1 %)]	IR[parallel 0.71 mΩ, mean 63.92, stdev 15.12 mΩ (23.7 %)]
+	BL~0785313403	80P	capa[sum 98547 mAh, mean 1231.84 stdev 384.27 (31.2 %)]	IR[parallel 0.71 mΩ, mean 62.50, stdev 14.78 mΩ (23.7 %)]
+	BL~4668536265	80P	capa[sum 99213 mAh, mean 1240.16 stdev 383.49 (30.9 %)]	IR[parallel 0.68 mΩ, mean 59.75, stdev 14.10 mΩ (23.6 %)]
+	BL~9291384009	80P	capa[sum 97373 mAh, mean 1217.16 stdev 355.78 (29.2 %)]	IR[parallel 0.69 mΩ, mean 60.46, stdev 13.56 mΩ (22.4 %)]
+	BL~9427614002	80P	capa[sum 100438 mAh, mean 1255.47 stdev 370.94 (29.5 %)]	IR[parallel 0.66 mΩ, mean 57.90, stdev 13.58 mΩ (23.4 %)]
+	BL~7763384910	80P	capa[sum 99796 mAh, mean 1247.45 stdev 381.71 (30.6 %)]	IR[parallel 0.69 mΩ, mean 60.13, stdev 14.20 mΩ (23.6 %)]
+	BL~8980484668	80P	capa[sum 100372 mAh, mean 1254.65 stdev 381.30 (30.4 %)]	IR[parallel 0.73 mΩ, mean 62.46, stdev 13.87 mΩ (22.2 %)]
+	BL~9378155622	80P	capa[sum 97642 mAh, mean 1220.52 stdev 355.08 (29.1 %)]	IR[parallel 0.72 mΩ, mean 62.83, stdev 14.85 mΩ (23.6 %)]
+2021-11-12 21:58.57 [info     ] string layout                  P=[80, 80, 80, 80, 80, 80, 80, 80, 80, 80] S=10 block_capacity_mean=98.81 Ah block_ir_mean=0.70 mΩ cells=800 energy_capacity=3.6 kWh interblock_capacity_stdev=1.43 % interblock_ir_stdev=2.87 % intrablock_ir_stdev_max=23.65 %
+
+
 ## A pack for a UPS (self-discharge is not critical)
 
 pack.py --match '.state.self_discharge.assessment == "FAIL" and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 110' -S 4 -a
+
+## List 
