@@ -102,7 +102,7 @@ class SQLAlchemy(CellDB):
                     parts.append(p)
                     p = self._container_cache[p]
 
-                infoset.put('.path', '/'.join(parts))
+                infoset.put('.path', '/'.join([''] + list(reversed(parts))))
             else:
                 infoset.put('.path', '/')
 
