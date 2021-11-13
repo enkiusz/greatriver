@@ -20,6 +20,7 @@ import time
 import os
 from functools import cached_property
 from itertools import zip_longest
+from enum import Enum, auto
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -210,20 +211,18 @@ def cls():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
-def main(config):
-
-    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
-
-    pool = []
-
-    for infoset in selected_cells(config=config, backend=backend):
-        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance'):
-            pool.append(infoset)
+def build_pool(backend, config):
+    pool = [ infoset for infoset in selected_cells(config=config, backend=backend)
+        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') ]
 
     # Add only cell IDs which have both an IR and capacity measurements
     log.info('cell pool', count=len(pool))
 
     pool.sort(reverse=True, key=lambda cell: cell.fetch('.state.usable_capacity')['v'])
+    return pool
+
+
+def assemble_string(pool, config):
 
     if config.P is None:
         # No P selected, try to use all cells available
@@ -242,8 +241,8 @@ def main(config):
     iterations = 0
     optimizer_start_time = time.time()
     last_progress_report = time.time()
-    last_new_pack = time.time()
-    last_new_pack_iter = 0
+    last_new_string = time.time()
+    last_new_string_iter = 0
 
     while True:
         n = iterations // 100 + 1
@@ -257,13 +256,13 @@ def main(config):
         new_string = build_string(pool, config.S, config.P, config)
 
         if improved(string, new_string):
-            log.info('improved pack found', iterations=iterations)
+            log.info('improved string found', iterations=iterations)
 
             # if config.loglevel == 'DEBUG':
             #     cls()
             string.print_info(verbose=True if config.loglevel == 'DEBUG' else False)
 
-            last_new_pack = time.time()
+            last_new_string = time.time()
             iterations = 0
             string = new_string
         else:
@@ -280,12 +279,46 @@ def main(config):
             log.info('optimal solution found')
             break
 
-        if (time.time() - last_new_pack > config.optimizer_timeout) or (time.time() - optimizer_start_time > config.total_timeout):
+        if (time.time() - last_new_string > config.optimizer_timeout) or (time.time() - optimizer_start_time > config.total_timeout):
             log.warn('optimizer timeout')
             break
 
     log.info('optimization finished')
-    string.print_info(verbose=True)
+    return string
+
+
+def main(config):
+    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
+
+    pool = build_pool(backend, config)
+
+    s = assemble_string(pool, config)
+    s.print_info(verbose=True)
+
+    if config.action == ActionCodes.preview.name:
+        return
+
+    if config.action == ActionCodes.assemble.name:
+        log.info('assembling string', path=config.path)
+        string_infoset = backend.create(id=s.id, path=config.path or '/')
+        backend.put(string_infoset)
+
+        string_path = str(Path(string_infoset.fetch('.path')).joinpath(string_infoset.fetch('.id')))
+
+        for block in s.blocks:
+            block_infoset = backend.create(id=block.id, path=string_path)
+            backend.put(block_infoset)
+
+            block_path = str(Path(block_infoset.fetch('.path')).joinpath(block_infoset.fetch('.id')))
+            for cell in block.cells:
+                backend.move(id=cell.fetch('.id'), destination=block_path)
+
+        return
+
+
+class ActionCodes(Enum):
+    preview = auto(),   # Choose cells which would go into a string but don't assemble it
+    assemble = auto()   # Assemble a new string moving the chosen cells from the pool to individual blocks
 
 
 if __name__ == "__main__":
@@ -301,14 +334,21 @@ if __name__ == "__main__":
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 
-    group = parser.add_argument_group('packer')
-    group.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+    parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+
+    group = parser.add_argument_group('layout')
     group.add_argument('-S', dest='S', type=int, default=2, help='The amount of series-connected blocks in a string')
     group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
+
+    group = parser.add_argument_group('optimizer')
     group.add_argument('--optimizer-timeout', metavar='SEC', default=60, type=float,
         help='Finish optimizer when a better solution is not found in SEC seconds')
     group.add_argument('--total-timeout', metavar='SEC', default=1200, type=float,
         help='Unconditionally finish the optimizer after SEC seconds')
+
+    group = parser.add_argument_group('actions')
+    group.add_argument('--action', choices=[ac.name for ac in ActionCodes], default=ActionCodes.preview.name, help='Choose an action')
+    group.add_argument('--path', metavar='PATH', default='/', help='Set PATH for the assembled string')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
