@@ -62,10 +62,10 @@ class JsonFiles(CellDB):
             infoset.put('.id', cell_id)
 
             # Synthesize container path for cell:
-            # a/b/c/d/meta.json -> path is /a/b/c
+            # a/b/c/d/meta.json -> path is /a/b/c/
             rp = location.resolve().relative_to(self.basepath).parents[1]
             if rp != Path():
-                infoset.put('.path', f'/{rp}')
+                infoset.put('.path', f'/{rp}/')
             else:
                 infoset.put('.path', '/')
 
