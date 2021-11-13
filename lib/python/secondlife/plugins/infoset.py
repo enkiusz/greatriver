@@ -10,7 +10,7 @@ import sys
 import jq
 import argparse
 
-from secondlife.cli.utils import CompileJQ, CompileJQAndAppend
+from secondlife.cli.utils import CompileJQAndAppend
 
 log = structlog.get_logger()
 
@@ -22,6 +22,10 @@ class InfosetReport(object):
         self.log = get_logger(name=__class__.__name__)
         self.cells = defaultdict(list)
         self.sort_results = dict()
+        if len(self.config.sort_queries) > 0:
+            self.sort_queries = self.config.sort_queries
+        else:
+            self.sort_queries = [ jq.compile('.id') ]
 
     def process_cell(self, infoset):
         cell_id = infoset.fetch('.id')
@@ -29,7 +33,7 @@ class InfosetReport(object):
         log.debug('processing cell')
 
         json_text = infoset.to_json(indent=2)
-        self.sort_results[ cell_id ] = self.config.sort_query.input(text=json_text).first()
+        self.sort_results[ cell_id ] = [ sort_query.input(text=json_text).first() for sort_query in self.sort_queries ]
 
         if len(self.config.infoset_queries) > 0:
             # Apply the jq queries if defined
@@ -54,7 +58,7 @@ class InfosetReport(object):
         if len(self.config.infoset_queries) > 0:
             asciitable.write([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys(), key=lambda key: self.sort_results[key]) ],  # noqa
                 names=['.id'] + [ query.program_string for query in self.config.infoset_queries ],
-                formats={ f'{self.config.sort_query.program_string}': '%s' },
+                formats={ f'{sort_query.program_string}': '%s' for sort_query in self.sort_queries },
                 Writer=asciitable.FixedWidth)
         else:
             for (id, item) in self.cells.items():
@@ -64,7 +68,8 @@ class InfosetReport(object):
 
 def _config_group(parser):
     group = parser.add_argument_group('infoset report')
-    group.add_argument('--sort-query', default=jq.compile('.id'), action=CompileJQ, help='Select query used as sorting value')
+    group.add_argument('--sort-query', default=[], dest='sort_queries', action=CompileJQAndAppend,
+        help='Select query used as sorting value')
     group.add_argument('--infoset-query', default=[], dest='infoset_queries', action=CompileJQAndAppend,
         help='Apply a JQ query to the infoset and print the result, use https://stedolan.github.io/jq/ syntax.')
 
