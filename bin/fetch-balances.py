@@ -9,6 +9,46 @@ from bankster.credstore.keepass import KeepassCredstore, AskUserCredstore
 from tabulate import tabulate
 import requests
 from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
+
+log = structlog.get_logger()
+
+class CurrencyConverter(object):
+    def __init__(self):
+        self.currencypairs = {}
+        self.base_currency = None
+        self.ecb_download()
+
+    def ecb_download(self):
+        self.base_currency = 'EUR'
+
+        url = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'
+        log.debug('downloading gesmes data', url=url)
+        r = requests.get(url)
+        r.raise_for_status()
+
+        root = ET.fromstring(r.text)
+        log.debug('gesmes data', root=root)
+
+        daily_cube = root.find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube').find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube')
+        for currency_cube in daily_cube.findall('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
+            currency = currency_cube.attrib['currency']
+            self.currencypairs[ f'EUR/{currency}'] = float(currency_cube.attrib['rate'])
+            self.currencypairs[ f'{currency}/EUR' ] = 1/float(currency_cube.attrib['rate'])
+
+        log.info('loaded currency pairs', count=len(self.currencypairs))
+
+    def convert(self, amount, frm, to):
+        # First check straight conversion
+        if f'{frm}/{to}' in self.currencypairs:
+            return amount * self.currencypairs[f'{frm}/{to}']
+
+        # Try via a base currency
+        base_amount = self.convert(amount, frm, self.base_currency)
+        return self.convert(base_amount, self.base_currency, to)
+
+
+currency_converter = CurrencyConverter()
 
 # Manual plugin import
 # KISS
@@ -21,7 +61,7 @@ from bankster.plugins.pl_starfunds import PLStarfunds
 from bankster.plugins.pl_mbank import PLMBank
 
 bank_plugins = dict(PLBosbank=PLBosbank, PLGenerali=PLGenerali, PLNestbank=PLNestbank, PLObligacjeSkarbowe=PLObligacjeSkarbowe,
-PLIdeabank=PLIdeabank, PLStarfunds=PLStarfunds, PLMBank=PLMBank)
+PLStarfunds=PLStarfunds, PLMBank=PLMBank)
 
 structlog.configure(
     processors=[
@@ -32,8 +72,6 @@ structlog.configure(
         structlog.dev.ConsoleRenderer()
     ],
 )
-
-log = structlog.get_logger()
 
 #
 # Parse command line arguments
@@ -109,12 +147,7 @@ for c in credstores:
                         #
                         # Convert currency to PLN if needed
                         #
-
-                        conversion_result = requests.get('https://api.ratesapi.io/api/latest',
-                            params=dict(base=currency, symbols='PLN') ).json()
-
-                        conversion_rate = conversion_result['rates']['PLN']
-                        amount *= conversion_rate
+                        amount = currency_converter.convert(amount, currency, 'PLN')
 
                 rows.append( [data['name'], bag['description'], amount] )
 
