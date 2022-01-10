@@ -44,7 +44,7 @@ class InfosetReport(object):
                 self.cells[ cell_id ].append( result )
                 log.debug('jq query result', id=cell_id, result=result, query=query)
         else:
-            self.cells[ self.config.sort_query.input(text=json_text).first() ] = [ json_text ]
+            self.cells[ cell_id ] = [ json_text ]
 
     def report(self, format='ascii'):
         if format != 'ascii':

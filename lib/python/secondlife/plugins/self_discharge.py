@@ -92,7 +92,7 @@ class SelfDischargeCheckResult(object):
                 else:
                     result = 'PASS'
 
-            log.debug('self-discharge check', id=self._cell.fetch('.id'), voltage_drop=f'{voltage_drop} mV/day', result=result)
+            log.debug('self-discharge check', id=self._cell.fetch('.id'), T=T, voltage_drop=f'{voltage_drop} mV/day', result=result)
 
             return dict(assessment=result, v=voltage_drop, u='mV/day')
 
