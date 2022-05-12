@@ -51,7 +51,7 @@ def generate_label(id1, id2=None):
     ctx = ImageDraw.Draw(label)
     try:
         font = ImageFont.truetype(font='Courier New', size=40)
-    except Excepton as e:
+    except Exception as e:
         font = ImageFont.truetype(font='UbuntuMono-R', size=40)
 
     gap = 5
