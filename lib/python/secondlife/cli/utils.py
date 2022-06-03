@@ -50,21 +50,28 @@ def include_cell(infoset, config):
     return True
 
 
+def all_cells(config, backend):
+    cells_found_total = 0
+    last_progress_report = time.time()
+
+    log.info('searching for cells')
+
+    for infoset in backend.find():
+        cells_found_total += 1
+        if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
+            last_progress_report = time.time()
+            log.info('progress', cells_found_total=cells_found_total)
+
+        if include_cell(infoset, config=config):
+            yield infoset
+
+
 def selected_cells(config, backend):
     cells_found_total = 0
     last_progress_report = time.time()
 
     if config.all_cells:
-        log.info('searching for cells')
-
-        for infoset in backend.find():
-            cells_found_total += 1
-            if cells_found_total % 1000 == 0 or time.time() - last_progress_report >= 2:
-                last_progress_report = time.time()
-                log.info('progress', cells_found_total=cells_found_total)
-
-            if include_cell(infoset, config=config):
-                yield infoset
+        return all_cells(config=config, backend=backend)
 
     for id in cell_identifiers(config=config):
 
@@ -137,6 +144,16 @@ def add_cell_selection_args(parser):
             Matches when a "true" string is returned as a single output')
     group.add_argument('identifiers', nargs='*', default=[],
         help='Cell identifiers, use - to read from standard input')
+
+
+# Add arguments which are used by the selected_cells() function
+# This variant does not allow for manual cell ID selection, it processes all cells by default
+def add_all_cells_match_args(parser):
+    group = parser.add_argument_group('cell selection')
+    group.set_defaults(all_cells=True, autocreate=False)
+    group.add_argument('--match', dest='jq_query', action=CompileJQ,
+        help='Filter cells based on infoset content, use https://stedolan.github.io/jq/ syntax. \
+            Matches when a "true" string is returned as a single output')
 
 
 def add_backend_selection_args(parser):

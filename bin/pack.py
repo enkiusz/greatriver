@@ -6,6 +6,7 @@
 # Allow module load from lib/python in main repo
 import sys
 from pathlib import Path
+
 currentdir = Path(__file__).resolve(strict=True).parent
 libdir = currentdir.parent.joinpath('lib/python')
 sys.path.append(str(libdir))
@@ -28,7 +29,8 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-from secondlife.cli.utils import generate_id, selected_cells, add_plugin_args, add_cell_selection_args, add_backend_selection_args
+from secondlife.cli.utils import generate_id, selected_cells, all_cells, add_plugin_args, cell_identifiers
+from secondlife.cli.utils import add_cell_selection_args, add_all_cells_match_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 
@@ -287,7 +289,21 @@ def assemble_string(pool, config):
     return string
 
 
-def main(config):
+def _layout_args(parser):
+    group = parser.add_argument_group('layout')
+    group.add_argument('-S', dest='S', type=int, default=2, help='The amount of series-connected blocks in a string')
+    group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
+
+
+def _optimizer_args(parser):
+    group = parser.add_argument_group('optimizer')
+    group.add_argument('--optimizer-timeout', metavar='SEC', default=60, type=float,
+        help='Finish optimizer when a better solution is not found in SEC seconds')
+    group.add_argument('--total-timeout', metavar='SEC', default=1200, type=float,
+        help='Unconditionally finish the optimizer after SEC seconds')
+
+
+def cmd_preview(config):
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
     pool = build_pool(backend, config)
@@ -295,30 +311,67 @@ def main(config):
     s = assemble_string(pool, config)
     s.print_info(verbose=True)
 
-    if config.action == ActionCodes.preview.name:
-        return
 
-    if config.action == ActionCodes.assemble.name:
-        log.info('assembling string', path=config.path)
-        string_infoset = backend.create(id=s.id, path=config.path or '/')
-        backend.put(string_infoset)
+def cmd_assemble(config):
+    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
-        string_path = str(Path(string_infoset.fetch('.path')).joinpath(string_infoset.fetch('.id')))
+    pool = build_pool(backend, config)
 
-        for block in s.blocks:
-            block_infoset = backend.create(id=block.id, path=string_path)
-            backend.put(block_infoset)
+    s = assemble_string(pool, config)
+    s.print_info(verbose=True)
 
-            block_path = str(Path(block_infoset.fetch('.path')).joinpath(block_infoset.fetch('.id')))
-            for cell in block.cells:
-                backend.move(id=cell.fetch('.id'), destination=block_path)
+    log.info('assembling string', path=config.path)
+    string_infoset = backend.create(id=s.id, path=config.path or '/')
+    backend.put(string_infoset)
 
-        return
+    string_path = str(Path(string_infoset.fetch('.path')).joinpath(string_infoset.fetch('.id')))
+
+    for block in s.blocks:
+        block_infoset = backend.create(id=block.id, path=string_path)
+        backend.put(block_infoset)
+
+        block_path = str(Path(block_infoset.fetch('.path')).joinpath(block_infoset.fetch('.id')))
+        for cell in block.cells:
+            backend.move(id=cell.fetch('.id'), destination=block_path)
 
 
-class ActionCodes(Enum):
-    preview = auto(),   # Choose cells which would go into a string but don't assemble it
-    assemble = auto()   # Assemble a new string moving the chosen cells from the pool to individual blocks
+def cmd_replace(config):
+    backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
+
+    pool = [ infoset for infoset in all_cells(config=config, backend=backend)
+        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') ]
+
+    # Add only cell IDs which have both an IR and capacity measurements
+    log.info('cell pool', count=len(pool))
+
+    for id in cell_identifiers(config=config):
+
+        # Find cell
+        infoset = backend.fetch(id)
+        if not infoset:
+            log.error('cell not found', id=id)
+            sys.exit(1)
+
+        capacity = infoset.fetch('.state.usable_capacity')
+        ir = infoset.fetch('.state.internal_resistance')
+        path = infoset.fetch('.path')
+        log.info('replacing cell', id=id, path=path, capacity=capacity, ir=ir)
+
+        pool.sort(reverse=False, key=lambda cell:
+            abs(capacity['v'] - cell.fetch('.state.usable_capacity')['v']) +
+            abs(ir['v'] - cell.fetch('.state.internal_resistance')['v'])
+        )
+
+        # First cell will be the cell we are replacing, the second cell with the the best replacement
+        replacement_cell = pool[1]
+        replacement_capacity = replacement_cell.fetch('.state.usable_capacity')
+        replacement_ir = replacement_cell.fetch('.state.internal_resistance')
+        log.info('replacement cell found', id=replacement_cell.fetch('.id'),
+            capacity=replacement_capacity, ir=replacement_ir)
+
+        if config.dump_path:
+            backend.move(id=replacement_cell.fetch('.id'), destination=path)
+            backend.move(id=id, destination=config.dump_path)
 
 
 if __name__ == "__main__":
@@ -330,25 +383,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Select cells to build a string of blocks connected in series. Monte-Carlo optimization.')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
+
     add_plugin_args(parser)
-    add_backend_selection_args(parser)
-    add_cell_selection_args(parser)
-
-    parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
-
-    group = parser.add_argument_group('layout')
-    group.add_argument('-S', dest='S', type=int, default=2, help='The amount of series-connected blocks in a string')
-    group.add_argument('-P', dest='P', type=int, help='The amount of cells connected parallel in each block')
-
-    group = parser.add_argument_group('optimizer')
-    group.add_argument('--optimizer-timeout', metavar='SEC', default=60, type=float,
-        help='Finish optimizer when a better solution is not found in SEC seconds')
-    group.add_argument('--total-timeout', metavar='SEC', default=1200, type=float,
-        help='Unconditionally finish the optimizer after SEC seconds')
-
-    group = parser.add_argument_group('actions')
-    group.add_argument('--action', choices=[ac.name for ac in ActionCodes], default=ActionCodes.preview.name, help='Choose an action')
-    group.add_argument('--path', metavar='PATH', default='/', help='Set PATH for the assembled string')
 
     # Then add argument configuration argument groups dependent on the loaded plugins, include only:
     # - state var plugins
@@ -357,6 +393,32 @@ if __name__ == "__main__":
     for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
         v1.config_groups[codeword](parser)
 
+    subparsers = parser.add_subparsers(help='commands')
+
+    preview_parser = subparsers.add_parser('preview', help="Choose cells which would go into a string but don't assemble it")
+    preview_parser.set_defaults(cmd=cmd_preview)
+    preview_parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+    add_backend_selection_args(preview_parser)
+    add_cell_selection_args(preview_parser)
+    _layout_args(preview_parser)
+    _optimizer_args(preview_parser)
+
+    assemble_parser = subparsers.add_parser('assemble', help="Assemble a new string moving the chosen cells from the pool to individual blocks")
+    assemble_parser.set_defaults(cmd=cmd_assemble)
+    assemble_parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+    assemble_parser.add_argument('--path', required=True, metavar='PATH', default='/', help='Set PATH for the assembled string')
+    add_backend_selection_args(assemble_parser)
+    add_cell_selection_args(assemble_parser)
+    _layout_args(assemble_parser)
+    _optimizer_args(assemble_parser)
+
+    replace_parser = subparsers.add_parser('replace', help="Replace specified cells")
+    replace_parser.set_defaults(cmd=cmd_replace)
+    add_backend_selection_args(replace_parser)
+    add_all_cells_match_args(replace_parser)
+    replace_parser.add_argument('--dump-path', required=True, help="The path where the old cell will be moved to")
+    replace_parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers to replace, use - to read from standard input')
+
     args = parser.parse_args()
 
     # Restrict log message to be above selected level
@@ -364,4 +426,4 @@ if __name__ == "__main__":
 
     log.debug('config', args=args)
 
-    main(config=args)
+    args.cmd(config=args)
