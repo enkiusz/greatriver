@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 
 log = structlog.get_logger()
 
+
 class CurrencyConverter(object):
     def __init__(self):
         self.currencypairs = {}
@@ -30,11 +31,11 @@ class CurrencyConverter(object):
         root = ET.fromstring(r.text)
         log.debug('gesmes data', root=root)
 
-        daily_cube = root.find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube').find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube')
+        daily_cube = root.find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube').find('./{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube')  # noqa
         for currency_cube in daily_cube.findall('{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}Cube'):
             currency = currency_cube.attrib['currency']
             self.currencypairs[ f'EUR/{currency}'] = float(currency_cube.attrib['rate'])
-            self.currencypairs[ f'{currency}/EUR' ] = 1/float(currency_cube.attrib['rate'])
+            self.currencypairs[ f'{currency}/EUR' ] = 1 / float(currency_cube.attrib['rate'])
 
         log.info('loaded currency pairs', count=len(self.currencypairs))
 
