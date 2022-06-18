@@ -362,14 +362,18 @@ def cmd_replace(config):
             abs(ir['v'] - cell.fetch('.state.internal_resistance')['v'])
         )
 
-        # First cell will be the cell we are replacing, the second cell with the the best replacement
-        replacement_cell = pool[1]
+        replacement_cell = pool[0]
+        if replacement_cell.fetch('.id') == id:
+            log.error('replaced cell found in pool', id=id)
+            continue
+
         replacement_capacity = replacement_cell.fetch('.state.usable_capacity')
         replacement_ir = replacement_cell.fetch('.state.internal_resistance')
         log.info('replacement cell found', id=replacement_cell.fetch('.id'),
             capacity=replacement_capacity, ir=replacement_ir)
 
         if config.dump_path:
+            pool = pool[1:] # Remove the replacement cell from the pool
             backend.move(id=replacement_cell.fetch('.id'), destination=path)
             backend.move(id=id, destination=config.dump_path)
 
@@ -416,7 +420,7 @@ if __name__ == "__main__":
     replace_parser.set_defaults(cmd=cmd_replace)
     add_backend_selection_args(replace_parser)
     add_all_cells_match_args(replace_parser)
-    replace_parser.add_argument('--dump-path', required=True, help="The path where the old cell will be moved to")
+    replace_parser.add_argument('--dump-path', help="The path where the old cell will be moved to")
     replace_parser.add_argument('identifiers', nargs='*', default=[], help='Cell identifiers to replace, use - to read from standard input')
 
     args = parser.parse_args()
