@@ -46,7 +46,7 @@ def retry(delay, max_retries, work, exc=None):
 
             retry_count += 1
             if retry_count == max_retries:
-                raise(e)
+                raise e
             time.sleep(delay)
             log.warning('retrying', delay=delay, retry_count=retry_count, max_retries=max_retries)
 

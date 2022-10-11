@@ -93,7 +93,7 @@ class TestInfoset(unittest.TestCase):
 
         cell_log.append(dict(type='test-event'))
 
-        assert(infoset.fetch('.log')[1]['type'] == 'test-event')
+        self.assertEqual(infoset.fetch('.log')[1]['type'], 'test-event')
 
 
 if __name__ == '__main__':

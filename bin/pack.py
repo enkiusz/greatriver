@@ -373,7 +373,7 @@ def cmd_replace(config):
             capacity=replacement_capacity, ir=replacement_ir)
 
         if config.dump_path:
-            pool = pool[1:] # Remove the replacement cell from the pool
+            pool = pool[1:]  # Remove the replacement cell from the pool
             backend.move(id=replacement_cell.fetch('.id'), destination=path)
             backend.move(id=id, destination=config.dump_path)
 

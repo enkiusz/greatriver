@@ -78,8 +78,8 @@ def cmd_sort(config):
                         time.sleep(1)
                         ser.write(f'mov {idx} idle\n'.encode('ascii'))
 
-                        if idx < len(slots)-1:
-                            log.info('passing on', cell_id=id, slot=idx, new_slot=idx+1)
+                        if idx < len(slots) - 1:
+                            log.info('passing on', cell_id=id, slot=idx, new_slot=idx + 1)
                             slots[idx + 1] = slots[idx]
                         else:
                             log.info('no bucket', cell_id=id, slot=idx)
