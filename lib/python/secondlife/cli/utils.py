@@ -66,12 +66,9 @@ def all_cells(config, backend):
             yield infoset
 
 
-def selected_cells(config, backend):
+def identified_cells(config, backend):
     cells_found_total = 0
     last_progress_report = time.time()
-
-    if config.all_cells:
-        return all_cells(config=config, backend=backend)
 
     for id in cell_identifiers(config=config):
 
@@ -101,6 +98,14 @@ def selected_cells(config, backend):
 
     # Final progress report
     log.info('progress', cells_found_total=cells_found_total)
+
+
+def selected_cells(config, backend):
+
+    if config.all_cells:
+        return all_cells(config=config, backend=backend)
+    else:
+        return identified_cells(config=config, backend=backend)
 
 
 def perform_measurement(infoset, codeword, config):
