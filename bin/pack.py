@@ -251,9 +251,10 @@ def assemble_string(pool, config):
 
         # Perform n swaps
         log.debug('swapping cells', n=n)
-        swaps = list(grouper(random.sample(range(len(pool)), 2 * n), 2))
+        swaps = list(grouper(random.sample(range(len(pool)), min(2 * n, len(pool))), 2))
         for (i1, i2) in swaps:
-            pool[i1], pool[i2] = pool[i2], pool[i1]
+            if i1 is not None and i2 is not None:
+                pool[i1], pool[i2] = pool[i2], pool[i1]
 
         new_string = build_string(pool, config.S, config.P, config)
 
