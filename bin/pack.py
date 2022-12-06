@@ -53,6 +53,7 @@ class Block(object):
     def __init__(self, **kwargs):
         self._id = kwargs.get('id', generate_id('BL'))
         self._cells = kwargs.get('cells', [])
+        self._config = kwargs['config']
 
     @property
     def id(self):
@@ -90,7 +91,11 @@ class Block(object):
 
     def print_info(self, prefix=''):
         print(f"{prefix}{self.id}\t{len(self.cells)}P\tcapa[sum {self.capa['sum']:5.0f} mAh, mean {self.capa['mean']:5.2f} stdev {self.capa['stdev']:3.2f} ({self.capa['stdev_pct']:3.1f} %)]\tIR[parallel {self.ir['parallel']:3.2f} mΩ, mean {self.ir['mean']:5.2f}, stdev {self.ir['stdev']:5.2f} mΩ ({self.ir['stdev_pct']:3.1f} %)]")  # noqa
-
+        if self._config.report:
+            r = v1.reports[self._config.report].handler_class(config=self._config)
+            for infoset in self.cells:
+                r.process_cell(infoset=infoset)
+            r.report()
 
 class String(object):
     def __init__(self, **kwargs):
@@ -180,7 +185,7 @@ def stop(string):
 def build_string(pool, S, P, config):
     pool = pool.copy()
 
-    string = String(config=config, blocks=[ Block() for i in range(S) ])
+    string = String(config=config, blocks=[ Block(config=config) for i in range(S) ])
     max_block_size = P
 
     while len(pool) >= S and any([ len(block.cells) < max_block_size for block in string.blocks ]):
@@ -271,7 +276,8 @@ def assemble_string(pool, config):
         else:
             # Reverse swaps
             for (i1, i2) in swaps:
-                pool[i1], pool[i2] = pool[i2], pool[i1]
+                if i1 is not None and i2 is not None:
+                    pool[i1], pool[i2] = pool[i2], pool[i1]
 
         iterations += 1
         if iterations % 1000 == 0 or time.time() - last_progress_report >= 2:
@@ -403,6 +409,13 @@ if __name__ == "__main__":
     preview_parser = subparsers.add_parser('preview', help="Choose cells which would go into a string but don't assemble it")
     preview_parser.set_defaults(cmd=cmd_preview)
     preview_parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
+
+    preview_parser.add_argument('-R', '--report', choices=v1.reports.keys(), dest='report', help='Report codeword for cells')
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only report plugins
+    included_plugins = v1.reports.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](preview_parser)
+
     add_backend_selection_args(preview_parser)
     add_cell_selection_args(preview_parser)
     _layout_args(preview_parser)
@@ -412,6 +425,13 @@ if __name__ == "__main__":
     assemble_parser.set_defaults(cmd=cmd_assemble)
     assemble_parser.add_argument('--cell-voltage', type=float, default=3.6, help='Nominal cell voltage used to calcualte capacity')
     assemble_parser.add_argument('--path', required=True, metavar='PATH', default='/', help='Set PATH for the assembled string')
+
+    assemble_parser.add_argument('-R', '--report', choices=v1.reports.keys(), dest='report', help='Report codeword for cells')
+    # Then add argument configuration argument groups dependent on the loaded plugins, include only report plugins
+    included_plugins = v1.reports.keys()
+    for codeword in filter(lambda codeword: codeword in v1.config_groups.keys(), included_plugins):
+        v1.config_groups[codeword](assemble_parser)
+
     add_backend_selection_args(assemble_parser)
     add_cell_selection_args(assemble_parser)
     _layout_args(assemble_parser)
