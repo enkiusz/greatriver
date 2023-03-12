@@ -97,6 +97,7 @@ class Block(object):
                 r.process_cell(infoset=infoset)
             r.report()
 
+
 class String(object):
     def __init__(self, **kwargs):
         self._id = kwargs.get('id', generate_id('STR'))
