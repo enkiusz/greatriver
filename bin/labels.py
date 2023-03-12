@@ -96,7 +96,7 @@ def generate_label(id1, id2=None):
 def multiply(iterable, n):
     result = []
     for item in iterable:
-        result.extend([item]* n)
+        result.extend([item] * n)
     return result
 
 
