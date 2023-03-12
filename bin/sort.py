@@ -11,11 +11,8 @@ currentdir = Path(__file__).resolve(strict=True).parent
 libdir = currentdir.parent.joinpath('lib/python')
 sys.path.append(str(libdir))
 
-import argparse
-import logging
 import structlog
-import time
-import serial
+import logging
 
 # Reference: https://stackoverflow.com/a/49724281
 LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
@@ -23,68 +20,149 @@ LOG_LEVEL_NAMES = [logging.getLevelName(v) for v in
 
 log = structlog.get_logger()
 
-from secondlife.cli.utils import add_plugin_args, cell_identifiers
+import argparse
+import logging
+import time
+import fileinput
+
+import board
+import busio
+import adafruit_pca9685
+from adafruit_servokit import ServoKit
+from adafruit_motor.servo import Servo
+
+bucket_config = [
+
+    # bucket 0
+    dict(servo_channel=0, min_pulse=500, max_pulse=2200, pass_angle=25, idle_angle=115, drop_angle=180),
+
+    # bucket 1
+    dict(servo_channel=1, min_pulse=650, max_pulse=2500, pass_angle=15, idle_angle=85, drop_angle=180),
+
+    # bucket 2
+    dict(servo_channel=2, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=90, drop_angle=180),
+
+    # bucket 3
+    dict(servo_channel=3, min_pulse=500, max_pulse=2500, pass_angle=15, idle_angle=95, drop_angle=180),
+
+    # bucket 4
+    dict(servo_channel=4, min_pulse=400, max_pulse=2600, pass_angle=15, idle_angle=95, drop_angle=180),
+
+    # bucket 5
+    dict(servo_channel=5, min_pulse=400, max_pulse=2600, pass_angle=15, idle_angle=95, drop_angle=180),
+
+    # bucket 6
+    dict(servo_channel=6, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=95, drop_angle=180),
+
+    # bucket 7
+    dict(servo_channel=7, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=80, drop_angle=180),
+
+    # bucket 8
+    dict(servo_channel=8, min_pulse=500, max_pulse=2600, pass_angle=38, idle_angle=105, drop_angle=180),
+
+    # bucket 9
+    dict(servo_channel=9, min_pulse=400, max_pulse=2600, pass_angle=0, idle_angle=90, drop_angle=180),
+
+]
+
+
+from secondlife.cli.utils import add_plugin_args, selected_cells
 from secondlife.cli.utils import add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
 
-buckets = [ 'BUCKET~0', 'BUCKET~1' ]
+i2c = busio.I2C(board.SCL, board.SDA)
+hat = adafruit_pca9685.PCA9685(i2c)
+kit = ServoKit(channels=16)
 
-slots = [ None, None ]
+
+import random
 
 
 def target_bucket(config, cell):
-    if cell.fetch('.id') == 'C~7221726799':
-        return 'BUCKET~1'
-    elif cell.fetch('.id') == 'C~5195400019':
-        return 'BUCKET~0'
-    else:
-        return None
+    return random.choice(buckets)
+
+
+def slot_idle(idx, steps=20, duration=0.2):
+    slot_move(idx, bucket_config[idx]['idle_angle'], steps=steps, duration=duration)
+
+
+def slot_drop(idx, steps=20, duration=0.2):
+    slot_move(idx, bucket_config[idx]['drop_angle'], steps=steps, duration=duration)
+
+
+def slot_pass(idx, steps=20, duration=0.2):
+    slot_move(idx, bucket_config[idx]['pass_angle'], steps=steps, duration=duration)
+
+
+def slot_move(idx, angle, steps=20, duration=0.2):
+    log.debug('moving slot', idx=idx, angle=angle)
+
+    # Calculate step size
+    step = ( angle - kit.servo[idx].angle) // steps
+    for i in range(steps):
+        log.debug('step', idx=idx, step=step, current_angle=kit.servo[idx].angle)
+        if step < 0:
+            kit.servo[idx].angle = max(kit.servo[idx].angle + step, angle)
+        elif step > 0:
+            kit.servo[idx].angle = min(kit.servo[idx].angle + step, 180)
+        else:
+            break  # Step == 0 means we don't move at all
+
+        if duration > 0:
+            # Delay so that all the movement takes `duration` seconds
+            time.sleep(duration / steps)
+
+    # Final move to make sure we hit the target angle
+    kit.servo[idx].angle = angle
 
 
 def cmd_sort(config):
+    for (num, bucket) in enumerate(bucket_config):
+        kit._items[num] = Servo(kit._pca.channels[ bucket['servo_channel'] ], min_pulse=bucket['min_pulse'], max_pulse=bucket['max_pulse'])
+        slot_idle(num, steps=1)
+
+    # The last None is for a cell which does not fit in any of the buckets
+    buckets = [ None for idx in range(0, 10) ] + [ None ]
+    slots = [None] * 10
+
+    log.info('tumbler initialized', num_buckets=len(bucket_config))
+
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
-    with serial.serial_for_url(config.tumbler_port) as ser:
 
-        for id in cell_identifiers(config=config):
+    for infoset in selected_cells(config=config, backend=backend):
+        id = infoset.fetch('.id')
+        bkt = target_bucket(config, id)
+        log.debug('bucket', cell_id=id, bucket=bkt)
 
-            # Find cell
-            infoset = backend.fetch(id)
-            if not infoset:
-                log.error('cell not found', id=id)
-                sys.exit(1)
+        slots[0] = id  # Cell always starts as the first (highest) slot
 
-            bkt = target_bucket(config, infoset)
-            log.debug('bucket', cell_id=id, bucket=bkt)
+        while len(list(filter(lambda s: s is not None, slots))) > 0:
 
-            slots[0] = id  # Cell always starts as the first (highest) slot
+            for (idx, cell) in reversed(list(enumerate(slots))):
+                if cell is None:  # Nothing to be done if there is no cell in slot
+                    continue
 
-            while len(list(filter(lambda s: s is not None, slots))) > 0:
+                if bkt == buckets[idx]:  # The bucket matches, drop cell
+                    log.info('dropping', cell_id=id, slot=idx, bucket=bkt)
+                    slot_drop(idx)
+                    time.sleep(0.5)
+                    slot_idle(idx, steps=1)
 
-                for (idx, cell) in reversed(list(enumerate(slots))):
-                    if cell is None:  # Nothing to be done if there is no cell in slot
-                        continue
+                    slots[idx] = None
 
-                    if bkt == buckets[idx]:  # The bucket matches, drop cell
-                        log.info('dropping', cell_id=id, slot=idx, bucket=bkt)
-                        ser.write(f'mov {idx} drop\n'.encode('ascii'))
-                        time.sleep(1)
-                        ser.write(f'mov {idx} idle\n'.encode('ascii'))
+                else:  # The bucket doesn't match, pass cell to lower slot
+                    slot_pass(idx)
+                    time.sleep(0.5)
+                    slot_idle(idx, steps=1)
 
-                        slots[idx] = None
+                    if idx < len(slots) - 1:
+                        log.info('passing on', cell_id=id, slot=idx, new_slot=idx + 1)
+                        slots[idx + 1] = slots[idx]
+                    else:
+                        log.info('no bucket', cell_id=id, slot=idx)
 
-                    else:  # The bucket doesn't match, pass cell to lower slot
-                        ser.write(f'mov {idx} pass\n'.encode('ascii'))
-                        time.sleep(1)
-                        ser.write(f'mov {idx} idle\n'.encode('ascii'))
-
-                        if idx < len(slots) - 1:
-                            log.info('passing on', cell_id=id, slot=idx, new_slot=idx + 1)
-                            slots[idx + 1] = slots[idx]
-                        else:
-                            log.info('no bucket', cell_id=id, slot=idx)
-
-                        slots[idx] = None
+                    slots[idx] = None
 
 
 if __name__ == "__main__":
@@ -95,8 +173,9 @@ if __name__ == "__main__":
     load_plugins()
 
     parser = argparse.ArgumentParser(description='Sort cells using a cell-tumbler')
-    parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='INFO', help='Change log level')
-    parser.add_argument('--tumbler-port', required=True, help='The serial port connected to the tumbler')
+    parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='DEBUG', help='Change log level')
+    parser.add_argument('--slot-path', nargs=2, action='append', help='Assign celldb path to slot number')
+    parser.add_argument('cell', help='Cell identifiers')
 
     add_plugin_args(parser)
 
