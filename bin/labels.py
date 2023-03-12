@@ -93,6 +93,13 @@ def generate_label(id1, id2=None):
     return label
 
 
+def multiply(iterable, n):
+    result = []
+    for item in iterable:
+        result.extend([item]* n)
+    return result
+
+
 def main(config, log):
 
     if config.g:
@@ -120,7 +127,7 @@ def main(config, log):
         else:
             ids_processed.append(id)
 
-    labels = [ generate_label(id) for id in ids_processed ]
+    labels = multiply([ generate_label(id) for id in ids_processed ], config.copies)
 
     if config.printer_pretend:
         for (i, image) in enumerate(labels):
@@ -140,8 +147,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Generate new cell identifiers and print labels for them')
     parser.add_argument('-g', metavar='N', type=int, default=0, help='Number of cell identifiers to generate')
+    parser.add_argument('--copies', metavar='N', type=int, default=1, help='Print N identical copies of each label')
     parser.add_argument('--prefix', default='C', help='Prefix before the tilde character ~')
-    parser.add_argument('--size', type=int, default=10, help='Number of digits after the tilde character ~')
+    parser.add_argument('--digits', type=int, default=10, help='Number of digits after the tilde character ~')
     parser.add_argument('--printer-model', metavar='MODEL', default=os.getenv('BROTHER_QL_MODEL'),
         choices=brother_ql.devicedependent.models, help='Select the printer model for brother_ql')
     parser.add_argument('--printer-id', metavar='PRINTER_ID', default=os.getenv('BROTHER_QL_PRINTER'),
