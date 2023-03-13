@@ -76,7 +76,6 @@ hat = adafruit_pca9685.PCA9685(i2c)
 kit = ServoKit(channels=16)
 
 
-
 def target_bucket(config, cell):
     return cell.fetch('.path')
 
