@@ -34,7 +34,7 @@ from adafruit_motor.servo import Servo
 bucket_config = [
 
     # bucket 0
-    dict(servo_channel=0, min_pulse=500, max_pulse=2200, pass_angle=25, idle_angle=115, drop_angle=180),
+    dict(servo_channel=0, min_pulse=500, max_pulse=2200, pass_angle=25, idle_angle=107, drop_angle=180),
 
     # bucket 1
     dict(servo_channel=1, min_pulse=650, max_pulse=2500, pass_angle=15, idle_angle=85, drop_angle=180),
@@ -76,11 +76,9 @@ hat = adafruit_pca9685.PCA9685(i2c)
 kit = ServoKit(channels=16)
 
 
-import random
-
 
 def target_bucket(config, cell):
-    return random.choice(buckets)
+    return cell.fetch('.path')
 
 
 def slot_idle(idx, steps=20, duration=0.2):
@@ -101,7 +99,6 @@ def slot_move(idx, angle, steps=20, duration=0.2):
     # Calculate step size
     step = ( angle - kit.servo[idx].angle) // steps
     for i in range(steps):
-        log.debug('step', idx=idx, step=step, current_angle=kit.servo[idx].angle)
         if step < 0:
             kit.servo[idx].angle = max(kit.servo[idx].angle + step, angle)
         elif step > 0:
@@ -118,51 +115,58 @@ def slot_move(idx, angle, steps=20, duration=0.2):
 
 
 def cmd_sort(config):
+    if config.bucket_path is None:
+        log.error('no bucket paths defined')
+        return
+
+    buckets = [ None for idx in range(0, 10) ]
+    slots = [None] * 10
+
+    for (idx, path) in config.bucket_path:
+        log.debug('bucket path', index=idx, path=path)
+        buckets[int(idx)] = path
+
     for (num, bucket) in enumerate(bucket_config):
         kit._items[num] = Servo(kit._pca.channels[ bucket['servo_channel'] ], min_pulse=bucket['min_pulse'], max_pulse=bucket['max_pulse'])
         slot_idle(num, steps=1)
-
-    # The last None is for a cell which does not fit in any of the buckets
-    buckets = [ None for idx in range(0, 10) ] + [ None ]
-    slots = [None] * 10
 
     log.info('tumbler initialized', num_buckets=len(bucket_config))
 
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
-    for infoset in selected_cells(config=config, backend=backend):
-        id = infoset.fetch('.id')
-        bkt = target_bucket(config, id)
-        log.debug('bucket', cell_id=id, bucket=bkt)
+    for cell in selected_cells(config=config, backend=backend):
+        cell_id = cell.fetch('.id')
+        bkt = target_bucket(config, cell)
+        log.debug('bucket', cell_id=cell_id, bucket=bkt)
 
-        slots[0] = id  # Cell always starts as the first (highest) slot
+        slots[0] = cell_id  # Cell always starts as the first (highest) slot
 
-        while len(list(filter(lambda s: s is not None, slots))) > 0:
+        while any(slots):
 
-            for (idx, cell) in reversed(list(enumerate(slots))):
-                if cell is None:  # Nothing to be done if there is no cell in slot
+            for (idx, current_cell) in reversed(list(enumerate(slots))):
+
+                if current_cell is None:  # Nothing to be done if there is no cell in slot
                     continue
 
                 if bkt == buckets[idx]:  # The bucket matches, drop cell
-                    log.info('dropping', cell_id=id, slot=idx, bucket=bkt)
+                    log.info('dropping', cell_id=current_cell, slot=idx, bucket=bkt)
                     slot_drop(idx)
                     time.sleep(0.5)
                     slot_idle(idx, steps=1)
 
-                    slots[idx] = None
-
-                else:  # The bucket doesn't match, pass cell to lower slot
+                else:  # The bucket doesn't match, pass cell to next slot
                     slot_pass(idx)
                     time.sleep(0.5)
                     slot_idle(idx, steps=1)
 
                     if idx < len(slots) - 1:
-                        log.info('passing on', cell_id=id, slot=idx, new_slot=idx + 1)
+                        log.info('passing on', cell_id=current_cell, slot=idx, new_slot=idx + 1)
                         slots[idx + 1] = slots[idx]
                     else:
-                        log.info('no bucket', cell_id=id, slot=idx)
+                        log.info('no bucket', cell_id=current_cell, slot=idx)
 
-                    slots[idx] = None
+                # The cell was either dropped or passed on, it should not be in the slot anymore
+                slots[idx] = None
 
 
 if __name__ == "__main__":
@@ -172,10 +176,9 @@ if __name__ == "__main__":
     )
     load_plugins()
 
-    parser = argparse.ArgumentParser(description='Sort cells using a cell-tumbler')
+    parser = argparse.ArgumentParser(description='Sort cells into buckets using a cell-tumbler')
     parser.add_argument('--loglevel', choices=LOG_LEVEL_NAMES, default='DEBUG', help='Change log level')
-    parser.add_argument('--slot-path', nargs=2, action='append', help='Assign celldb path to slot number')
-    parser.add_argument('cell', help='Cell identifiers')
+    parser.add_argument('--bucket-path', nargs=2, action='append', help='Assign celldb path to bucket number')
 
     add_plugin_args(parser)
 
