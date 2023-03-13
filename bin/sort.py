@@ -34,7 +34,7 @@ from adafruit_motor.servo import Servo
 bucket_config = [
 
     # bucket 0
-    dict(servo_channel=0, min_pulse=500, max_pulse=2200, pass_angle=25, idle_angle=107, drop_angle=180),
+    dict(servo_channel=0, min_pulse=500, max_pulse=2200, pass_angle=20, idle_angle=107, drop_angle=180),
 
     # bucket 1
     dict(servo_channel=1, min_pulse=650, max_pulse=2500, pass_angle=15, idle_angle=85, drop_angle=180),
@@ -58,7 +58,7 @@ bucket_config = [
     dict(servo_channel=7, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=80, drop_angle=180),
 
     # bucket 8
-    dict(servo_channel=8, min_pulse=500, max_pulse=2600, pass_angle=38, idle_angle=105, drop_angle=180),
+    dict(servo_channel=8, min_pulse=500, max_pulse=2600, pass_angle=31, idle_angle=105, drop_angle=180),
 
     # bucket 9
     dict(servo_channel=9, min_pulse=400, max_pulse=2600, pass_angle=0, idle_angle=90, drop_angle=180),
