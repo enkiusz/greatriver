@@ -388,6 +388,127 @@ STR~2689936470	10S	capa[sum   988 Ah, mean 98.81, stdev 1413.16686 mAh (1.43 %)]
 
 ## A pack for a UPS (self-discharge is not critical)
 
-pack.py --match '.state.self_discharge.assessment == "FAIL" and (.props.tags.corrosion == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .state.internal_resistance.v < 110' -S 4 -a
 
 ## List 
+
+================================
+
+Packing list for a string
+
+➜  docs git:(master) ✗ info.py -a --match '.path | startswith("/PREPROD/STR~6404665298/")' -R infoset \
+	--infoset-query '.path + .id' --infoset-query '.state.bucket' \
+	--sort-query '.path + .state.bucket'
+2023-03-12 18:20.47 [info     ] loading plugins                namespace=<module 'secondlife.plugins' from '/home/enki/repos/github.com/enkiusz/greatriver/lib/python/secondlife/plugins/__init__.py'>
+2023-03-12 18:20.48 [info     ] searching for cells
+2023-03-12 18:20.50 [info     ] cached all logs                count=3992
+2023-03-12 18:20.53 [info     ] cached all extras              count=111
+2023-03-12 18:20.54 [info     ] cached all container IDs       count=3859
+2023-03-12 18:20.54 [info     ] progress                       cells_found_total=1
+2023-03-12 18:20.55 [info     ] progress                       cells_found_total=1000
+2023-03-12 18:20.55 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-12 18:20.55 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-12 18:20.55 [info     ] progress                       cells_found_total=2000
+2023-03-12 18:20.56 [warning  ] cannot determine bucket        id=TESTBED
+2023-03-12 18:20.56 [warning  ] cannot determine bucket        id=PREPROD
+2023-03-12 18:20.56 [warning  ] cannot determine bucket        id=JUNK
+2023-03-12 18:20.56 [warning  ] cannot determine bucket        id=STOCK
+2023-03-12 18:20.56 [info     ] progress                       cells_found_total=3000
+2023-03-12 18:20.57 [warning  ] cannot determine bucket        id=DEPACKED
+|           .id |                                        .path + .id | .state.bucket |
+| BL~0383457779 |              /PREPROD/STR~6404665298/BL~0383457779 |           03P |
+| BL~0485767676 |              /PREPROD/STR~6404665298/BL~0485767676 |           04P |
+| BL~1040067677 |              /PREPROD/STR~6404665298/BL~1040067677 |           10P |
+| BL~2306594136 |              /PREPROD/STR~6404665298/BL~2306594136 |           23P |
+| BL~2587102746 |              /PREPROD/STR~6404665298/BL~2587102746 |           25P |
+| BL~3425691774 |              /PREPROD/STR~6404665298/BL~3425691774 |           34P |
+| BL~5322205048 |              /PREPROD/STR~6404665298/BL~5322205048 |           53P |
+| BL~6523649345 |              /PREPROD/STR~6404665298/BL~6523649345 |           65P |
+| BL~9004878134 |              /PREPROD/STR~6404665298/BL~9004878134 |           90P |
+| BL~9945209595 |              /PREPROD/STR~6404665298/BL~9945209595 |           99P |
+|  C~0012168377 | /PREPROD/STR~6404665298/BL~0383457779/C~0012168377 |           00N |
+
+
+➜  docs git:(master) ✗ info.py -a --match '.props.formfactor == "18650" and (.path | startswith("/PREPROD/STR~7436719193/"))' -R infoset \
+        --infoset-query '.path + .id' --infoset-query '.state.bucket' \
+        --sort-query '.path + .state.bucket'
+2023-03-14 15:42.20 [info     ] loading plugins                namespace=<module 'secondlife.plugins' from '/home/enki/repos/github.com/enkiusz/greatriver/lib/python/secondlife/plugins/__init__.py'>
+2023-03-14 15:42.21 [info     ] searching for cells
+2023-03-14 15:42.22 [info     ] cached all logs                count=3992
+2023-03-14 15:42.25 [info     ] cached all extras              count=111
+2023-03-14 15:42.25 [info     ] cached all container IDs       count=3859
+2023-03-14 15:42.26 [info     ] progress                       cells_found_total=1
+2023-03-14 15:42.26 [info     ] progress                       cells_found_total=1000
+2023-03-14 15:42.26 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-14 15:42.27 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-14 15:42.27 [info     ] progress                       cells_found_total=2000
+2023-03-14 15:42.27 [warning  ] cannot determine bucket        id=TESTBED
+2023-03-14 15:42.27 [warning  ] cannot determine bucket        id=PREPROD
+2023-03-14 15:42.27 [warning  ] cannot determine bucket        id=JUNK
+2023-03-14 15:42.27 [warning  ] cannot determine bucket        id=STOCK
+2023-03-14 15:42.28 [info     ] progress                       cells_found_total=3000
+2023-03-14 15:42.28 [warning  ] cannot determine bucket        id=DEPACKED
+|          .id |                                        .path + .id | .state.bucket |
+| C~0968733553 | /PREPROD/STR~7436719193/BL~1022488536/C~0968733553 |           09P |
+| C~1933991996 | /PREPROD/STR~7436719193/BL~1022488536/C~1933991996 |           19N |
+| C~2057466134 | /PREPROD/STR~7436719193/BL~1022488536/C~2057466134 |           20N |
+| C~2338068178 | /PREPROD/STR~7436719193/BL~1022488536/C~2338068178 |           23N |
+[...]
+
+
+
+============================
+
+Count bucket totals (useful for tracking progress on the sorter)
+
+➜  ~ info.py -a --match '.path | startswith("/PREPROD/STR~7436719193/")' -R groups --key-query '.state.bucket'
+2023-03-14 13:23.21 [info     ] loading plugins                namespace=<module 'secondlife.plugins' from '/home/enki/repos/github.com/enkiusz/greatriver/lib/python/secondlife/plugins/__init__.py'>
+2023-03-14 13:23.22 [info     ] searching for cells
+2023-03-14 13:23.23 [info     ] cached all logs                count=3992
+2023-03-14 13:23.26 [info     ] cached all extras              count=111
+2023-03-14 13:23.26 [info     ] cached all container IDs       count=3859
+2023-03-14 13:23.26 [info     ] progress                       cells_found_total=1
+2023-03-14 13:23.27 [info     ] progress                       cells_found_total=1000
+2023-03-14 13:23.27 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-14 13:23.27 [error    ] exception                      _exc_info=KeyError('ts')
+2023-03-14 13:23.28 [info     ] progress                       cells_found_total=2000
+2023-03-14 13:23.28 [warning  ] cannot determine bucket        id=TESTBED
+2023-03-14 13:23.28 [warning  ] cannot determine bucket        id=PREPROD
+2023-03-14 13:23.28 [warning  ] cannot determine bucket        id=JUNK
+2023-03-14 13:23.28 [warning  ] cannot determine bucket        id=STOCK
+2023-03-14 13:23.28 [info     ] progress                       cells_found_total=3000
+2023-03-14 13:23.29 [warning  ] cannot determine bucket        id=DEPACKED
+| .state.bucket | Count |
+|         "00N" |     1 |
+|         "01N" |     2 |
+|         "02N" |     1 |
+|         "02P" |     2 |
+|         "05P" |     2 |
+|         "06N" |     2 |
+|         "07N" |     1 |
+|         "09N" |     1 |
+|         "09P" |     1 |
+|         "10P" |     1 |
+|         "13N" |     1 |
+|         "14P" |     1 |
+|         "17N" |     1 |
+|         "17P" |     1 |
+|         "18N" |     1 |
+|         "18P" |     1 |
+
+===================================
+
+Print labels
+
+➜  ~ labels.py --copies 2 BL~1022488536 BL~3002812862 BL~4005524831 BL~8894048519
+
+===================================
+
+Sorting the cells into buckets (blocks)
+
+python3 bin/sort.py \
+--bucket-path 0 /PREPROD/STR~7436719193/BL~1022488536/ \
+--bucket-path 3 /PREPROD/STR~7436719193/BL~3002812862/ \
+--bucket-path 4 /PREPROD/STR~7436719193/BL~4005524831/ \
+--bucket-path 9 /PREPROD/STR~7436719193/BL~8894048519/ \
+--loglevel DEBUG -
+
