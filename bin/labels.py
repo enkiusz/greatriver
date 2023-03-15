@@ -103,7 +103,7 @@ def multiply(iterable, n):
 def main(config, log):
 
     if config.g:
-        config.identifiers = [ generate_id(config.prefix, k=config.size) for i in range(config.g) ]
+        config.identifiers = [ generate_id(config.prefix, k=config.digits) for i in range(config.g) ]
 
     if not config.printer_pretend:
         if not config.printer_id:
