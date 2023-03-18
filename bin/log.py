@@ -32,6 +32,11 @@ def main(config):
 
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
+    if config.all_cells and not config.allow_unsafe:
+        ack = input("Applying changes to all cells is a dangerous operation, please type 'yes' to continue: ")
+        if ack != 'yes':
+            return
+
     for infoset in selected_cells(config=config, backend=backend):
         id = infoset.fetch('.id')
         if config.pause_before_cell:
@@ -135,6 +140,8 @@ if __name__ == '__main__':
     add_backend_selection_args(parser)
     add_cell_selection_args(parser)
 
+    parser.add_argument('--allow-unsafe', default=False, action='store_true',
+                        help='Allow modification of all cells without confirmation')
     parser.add_argument('--pause-before-cell', default=False, action='store_true',
         help='Pause for a keypress before each cell')
     parser.add_argument('--pause-before-measure', default=False, action='store_true',
