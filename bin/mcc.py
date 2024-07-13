@@ -23,7 +23,7 @@ from threading import Thread
 import threading
 from structlog.threadlocal import bind_threadlocal, clear_threadlocal
 from structlog.contextvars import bind_contextvars, clear_contextvars
-import asciitable
+import tabulate
 import socket
 import struct
 
@@ -148,10 +148,12 @@ def slot(config):
                     results[slot].append( query_result )
                     log.debug('jq query result', slot=slot, result=query_result, query=query)
 
-            asciitable.write([ [slot] + [ result for result in results[slot] ] for slot in config.slots ],
-                names=['Slot'] + [ query.program_string for query in config.infoset_queries ],
-                formats={ 'Slot': '%s' },
-                Writer=asciitable.FixedWidth)
+            print(
+                tabulate.tabulate([ [slot] + [ result for result in results[slot] ] for slot in config.slots ],
+                                  headers=['Slot'] + [ query.program_string for query in config.infoset_queries ],
+                                  tablefmt='fancy_grid'
+                                  )
+            )
         else:
             print(json.dumps( { slot.name: cells_info[slot].fetch('.') for slot in config.slots } ))
 
