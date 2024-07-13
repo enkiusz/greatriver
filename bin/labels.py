@@ -68,7 +68,7 @@ def generate_label(id1, id2=None):
     id_text = f'{code}~{format_digits(num)}'
 
     # get the line size
-    text_width, text_height = font.getsize(id_text)
+    (_, _, text_width, text_height) = font.getbbox(id_text)
 
     ctx.text((label.size[0] / 2, y), id_text, font=font, anchor='ma', fill='black')
     y += text_height + gap * 2
@@ -102,8 +102,12 @@ def multiply(iterable, n):
 
 def main(config, log):
 
-    if config.g:
-        config.identifiers = [ generate_id(config.prefix, k=config.digits) for i in range(config.g) ]
+    if config.n:
+        if config.sequence:
+            config.identifiers = [ ("{}~{:0" + str(config.digits) + "d}").format(config.prefix, i)
+                                   for i in range(config.sequence, config.sequence + config.n) ]
+        else:
+            config.identifiers = [ generate_id(config.prefix, k=config.digits) for i in range(config.n) ]
 
     if not config.printer_pretend:
         if not config.printer_id:
@@ -145,8 +149,9 @@ def main(config, log):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Generate new cell identifiers and print labels for them')
-    parser.add_argument('-g', metavar='N', type=int, default=0, help='Number of cell identifiers to generate')
+    parser = argparse.ArgumentParser(description='Generate and print labels')
+    parser.add_argument('-n', metavar='N', type=int, default=0, help='Number of identifiers to generate')
+    parser.add_argument('--sequence', metavar='START', type=int, help="Do not randomize identifiers, print a sequence beginning from START")
     parser.add_argument('--copies', metavar='N', type=int, default=1, help='Print N identical copies of each label')
     parser.add_argument('--prefix', default='C', help='Prefix before the tilde character ~')
     parser.add_argument('--digits', type=int, default=10, help='Number of digits after the tilde character ~')
