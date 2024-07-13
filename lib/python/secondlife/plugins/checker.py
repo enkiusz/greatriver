@@ -2,7 +2,7 @@
 
 from secondlife.plugins.api import v1
 from structlog import get_logger
-import asciitable
+import tabulate
 import json
 from collections import defaultdict
 import structlog
@@ -128,9 +128,9 @@ class CheckerReport(object):
             self.log.warning('no data')
             return
 
-        asciitable.write([ (id, ','.join(self.cells[id])) for id in sorted(self.cells.keys()) ],
-            names=['Cell ID', 'Failed checks'], formats={ 'Cell ID': '%s', 'Failed checks': '%s' },
-            Writer=asciitable.FixedWidth)
+        print( tabulate.tabulate([ (id, ','.join(self.cells[id])) for id in sorted(self.cells.keys()) ],
+                              headers=['Cell ID', 'Failed checks'],
+                              tablefmt='fancy_grid') )
 
 
 def _config_group(parser):

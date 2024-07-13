@@ -2,7 +2,7 @@
 
 from secondlife.plugins.api import v1
 from structlog import get_logger
-import asciitable
+import tabulate
 
 
 class CapacityReport(object):
@@ -25,10 +25,11 @@ class CapacityReport(object):
     def report(self, format='ascii'):
         if format == 'ascii':
             if len(self.data.keys()) > 0:
-                asciitable.write([ (id, float(capacity['v'])) for (id, capacity) in self.data.items() ],
-                    names=['Cell ID', 'Capacity [mAh]'],
-                    formats={ 'Cell ID': '%s', 'Capacity [mAh]': '%s'},
-                    Writer=asciitable.FixedWidth)
+                print(
+                    tabulate.tabulate([ (id, float(capacity['v'])) for (id, capacity) in self.data.items() ],
+                                      headers=['Cell ID', 'Capacity [mAh]'],
+                                      tablefmt='fancy_grid')
+                )
             else:
                 self.log.warning('no data')
         else:

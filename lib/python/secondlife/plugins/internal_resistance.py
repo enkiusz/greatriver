@@ -3,7 +3,7 @@
 from secondlife.plugins.api import v1
 from structlog import get_logger
 from dateutil.relativedelta import relativedelta
-import asciitable
+import tabulate
 import json
 import pint
 
@@ -30,10 +30,9 @@ class InternalResistanceReport(object):
     def report(self, format='ascii'):
         if format == 'ascii':
             if len(self.data.keys()) > 0:
-                asciitable.write([ (id, float(ir['v'])) for (id, ir) in self.data.items() ],
-                    names=['Cell ID', 'IR [mΩ]'],
-                    formats={ 'Cell ID': '%s', 'IR [mΩ]': '%s'},
-                    Writer=asciitable.FixedWidth)
+                print( tabulate.tabulate([ (id, float(ir['v'])) for (id, ir) in self.data.items() ],
+                                      headers=['Cell ID', 'IR [mΩ]'],
+                                      tablefmt='fancy_grid') )
             else:
                 self.log.warning('no data')
         else:

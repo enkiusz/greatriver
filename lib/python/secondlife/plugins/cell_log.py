@@ -3,7 +3,7 @@
 from secondlife.plugins.api import v1
 from structlog import get_logger
 from dateutil.relativedelta import relativedelta
-import asciitable
+import tabulate
 import json
 import time
 
@@ -28,7 +28,7 @@ def _format_results(results):
     r = []
     for (name, value) in results.items():
         try:
-            r.append(f"{name}={round(value['v'],3)}{value.get('u')}")
+            r.append(f"{name}={round(value['v'], 3)}{value.get('u')}")
         except Exception:
             # No 'v' or 'u' key, print as plain value
             r.append(f"{name}={value!r}")
@@ -79,8 +79,7 @@ class LogReport(object):
             for (id, rows) in self.cells.items():
                 print(f"=== Log for {id}")
                 if len(rows) > 0:
-                    asciitable.write(rows, names=['Timestamp', 'Type', 'Event', 'Equipment', 'Data'],
-                        formats={'Timestamp': '%s', 'Type': '%s', 'Event': '%s', 'Equipment': '%s', 'Results': '%s'}, Writer=asciitable.FixedWidth)
+                    print( tabulate.tabulate(rows, headers=['Timestamp', 'Type', 'Event', 'Equipment', 'Data'], tablefmt='fancy_grid') )
                 else:
                     print("LOG EMPTY")
         else:

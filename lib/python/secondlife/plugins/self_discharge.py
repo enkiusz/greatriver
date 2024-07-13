@@ -2,7 +2,7 @@
 
 from secondlife.plugins.api import v1
 from structlog import get_logger
-import asciitable
+import tabulate
 
 log = get_logger()
 

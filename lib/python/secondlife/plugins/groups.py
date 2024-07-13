@@ -2,7 +2,7 @@
 
 from secondlife.plugins.api import v1
 from structlog import get_logger
-import asciitable
+import tabulate
 import json
 from collections import defaultdict
 import structlog
@@ -45,9 +45,9 @@ class GroupsReport(object):
             self.log.warning('no data')
             return
 
-        asciitable.write([ ([ group for group in key ] + [self.cells[key]]) for key in sorted(self.cells.keys()) ],
-            names=[ query.program_string for query in self.config.key_queries ] + ['Count'],
-            Writer=asciitable.FixedWidth)
+        print( tabulate.tabulate([ ([ group for group in key ] + [self.cells[key]]) for key in sorted(self.cells.keys()) ],
+                              headers=[ query.program_string for query in self.config.key_queries ] + ['Count'],
+                              tablefmt='fancy_grid') )
 
 
 def _config_group(parser):

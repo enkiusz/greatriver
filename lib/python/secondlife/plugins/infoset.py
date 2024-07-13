@@ -2,7 +2,7 @@
 
 from secondlife.plugins.api import v1
 from structlog import get_logger
-import asciitable
+import tabulate
 import json
 from collections import defaultdict
 import structlog
@@ -56,10 +56,11 @@ class InfosetReport(object):
             return
 
         if len(self.config.infoset_queries) > 0:
-            asciitable.write([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys(), key=lambda key: self.sort_results[key]) ],  # noqa
-                names=['.id'] + [ query.program_string for query in self.config.infoset_queries ],
-                formats={ f'{sort_query.program_string}': '%s' for sort_query in self.sort_queries },
-                Writer=asciitable.FixedWidth)
+            print(
+                tabulate.tabulate([ [id] + [ str(result) for result in self.cells[id] ] for id in sorted(self.cells.keys(), key=lambda key: self.sort_results[key]) ],  # noqa
+                                  headers=['.id'] + [ query.program_string for query in self.config.infoset_queries ],
+                                  tablefmt='fancy_grid')
+            )
         else:
             for (id, item) in self.cells.items():
                 print(f"=== Infoset for {id}")
