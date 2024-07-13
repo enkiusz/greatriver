@@ -130,14 +130,14 @@ class String(object):
 
     def print_info(self, prefix='', verbose=False):
         if verbose is True:
-            print(f"{self.id}\t{len(self.blocks)}S\tcapa[sum {self.blocks_capa['sum']/1000:5.0f} Ah, mean {self.blocks_capa['mean']/1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")  # noqa
+            print(f"{self.id}\t{len(self.blocks)}S\tcapa[sum {self.blocks_capa['sum'] / 1000:5.0f} Ah, mean {self.blocks_capa['mean'] / 1000:3.2f}, stdev {self.blocks_capa['stdev']:3.5f} mAh ({self.blocks_capa['stdev_pct']:3.2f} %)]\tIR[max {self.blocks_ir['max']:2.2f} mΩ, mean {self.blocks_ir['mean']:2.2f}, stdev {self.blocks_ir['stdev']:2.5f} ({self.blocks_ir['stdev_pct']:3.2f} %)]")  # noqa
             for block in self.blocks:
                 block.print_info("\t")
 
         log.info('string layout', cells=sum([ len(b.cells) for b in self.blocks ]),
             S=len(self.blocks), P=[ len(b.cells) for b in self.blocks ],
             energy_capacity=f'{self.energy_capacity:3.1f} kWh',
-            block_capacity_mean=f"{self.blocks_capa['mean']/1000:3.2f} Ah",
+            block_capacity_mean=f"{self.blocks_capa['mean'] / 1000:3.2f} Ah",
             interblock_capacity_stdev=f"{self.blocks_capa['stdev_pct']:3.2f} %",
             block_ir_mean=f"{self.blocks_ir['mean']:2.2f} mΩ",
             interblock_ir_stdev=f"{self.blocks_ir['stdev_pct']:3.2f} %",
@@ -346,10 +346,16 @@ def cmd_assemble(config):
 def cmd_replace(config):
     backend = v1.celldb_backends[args.backend](dsn=args.backend_dsn, config=args)
 
-    pool = [ infoset for infoset in all_cells(config=config, backend=backend)
-        if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') ]
-
     # Add only cell IDs which have both an IR and capacity measurements
+    pool = [ infoset for infoset in all_cells(config=config, backend=backend)
+             if infoset.fetch('.state.usable_capacity') and infoset.fetch('.state.internal_resistance') ]
+
+    if len(pool) == 0:
+        log.error('pool empty')
+        return
+
+    replacements = {}
+
     log.info('cell pool', count=len(pool))
 
     for id in cell_identifiers(config=config):
@@ -367,7 +373,7 @@ def cmd_replace(config):
 
         pool.sort(reverse=False, key=lambda cell:
             abs(capacity['v'] - cell.fetch('.state.usable_capacity')['v']) +
-            abs(ir['v'] - cell.fetch('.state.internal_resistance')['v'])
+            1.5 * abs(ir['v'] - cell.fetch('.state.internal_resistance')['v'])
         )
 
         replacement_cell = pool[0]
@@ -375,13 +381,16 @@ def cmd_replace(config):
             log.error('replaced cell found in pool', id=id)
             continue
 
+        pool = pool[1:]  # Remove the replacement cell from the pool
+        log.info('cell pool', count=len(pool))
+
         replacement_capacity = replacement_cell.fetch('.state.usable_capacity')
         replacement_ir = replacement_cell.fetch('.state.internal_resistance')
         log.info('replacement cell found', id=replacement_cell.fetch('.id'),
-            capacity=replacement_capacity, ir=replacement_ir)
+                 capacity=replacement_capacity, ir=replacement_ir,
+                 path=replacement_cell.fetch('.path'))
 
         if config.dump_path:
-            pool = pool[1:]  # Remove the replacement cell from the pool
             backend.move(id=replacement_cell.fetch('.id'), destination=path)
             backend.move(id=id, destination=config.dump_path)
 
