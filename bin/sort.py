@@ -27,11 +27,7 @@ import time
 import fileinput
 import random
 
-import board
-import busio
-import adafruit_pca9685
 from adafruit_servokit import ServoKit
-from adafruit_motor.servo import Servo
 
 bucket_config = [
 
@@ -57,24 +53,20 @@ bucket_config = [
     dict(servo_channel=6, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=95, drop_angle=180),
 
     # bucket 7
-    dict(servo_channel=7, min_pulse=500, max_pulse=2500, pass_angle=0, idle_angle=80, drop_angle=180),
+    dict(servo_channel=7, min_pulse=500, max_pulse=2500, pass_angle=20, idle_angle=85, drop_angle=180),
 
     # bucket 8
-    dict(servo_channel=8, min_pulse=500, max_pulse=2600, pass_angle=31, idle_angle=105, drop_angle=180),
+    dict(servo_channel=8, min_pulse=500, max_pulse=2600, pass_angle=37, idle_angle=105, drop_angle=180),
 
     # bucket 9
     dict(servo_channel=9, min_pulse=400, max_pulse=2600, pass_angle=0, idle_angle=90, drop_angle=180),
 
 ]
 
-
 from secondlife.cli.utils import add_plugin_args, selected_cells
 from secondlife.cli.utils import add_cell_selection_args, add_backend_selection_args
 from secondlife.plugins.api import v1, load_plugins
 
-
-i2c = busio.I2C(board.SCL, board.SDA)
-hat = adafruit_pca9685.PCA9685(i2c)
 kit = ServoKit(channels=16)
 
 
@@ -171,14 +163,15 @@ def cell_thread(config, cell, buckets):
 
 def cmd_sort(config):
 
-    for (idx, path) in config.bucket_path:
-        log.debug('bucket path', index=idx, path=path)
-        buckets[int(idx)] = path
+    if config.bucket_path:
+        for (idx, path) in config.bucket_path:
+            log.debug('bucket path', index=idx, path=path)
+            buckets[int(idx)] = path
 
     for (num, bucket) in enumerate(bucket_config):
-        kit._items[num] = Servo(kit._pca.channels[ bucket['servo_channel'] ], min_pulse=bucket['min_pulse'], max_pulse=bucket['max_pulse'])
-        kit._items[num].lock = threading.Lock()
-        slot_idle(num, steps=1)
+        kit.servo[num].set_pulse_width_range(bucket['min_pulse'], bucket['max_pulse'])
+        kit.servo[num].lock = threading.Lock()
+        kit.servo[num].angle = bucket['idle_angle']
 
     log.info('tumbler initialized', num_buckets=len(bucket_config))
 
