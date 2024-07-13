@@ -76,7 +76,7 @@ def _megacell_settings_pack(settings: Infoset) -> dict:
 
     for (key, spec) in _megacell_settings_map.items():
         value = settings.fetch(spec['path'])
-        if type(value) == dict:
+        if value is dict:
             value = value['v']
 
         data[key] = value

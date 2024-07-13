@@ -15,6 +15,7 @@ class ActionCodes(str, Enum):
     STOP_STORE_CHARGE = 'osc'
     START_DISPOSE = 'dsp'
     STOP_DISPOSE = 'dps'
+    STOP = ''
 
 
 class StatusStrings(str, Enum):
@@ -30,6 +31,7 @@ class StatusStrings(str, Enum):
     STARTED_CHARGING = 'Started Charging'
     STOPPED_CHARGING = 'Stopped Charging'
     HOT_CHARGED = 'Hot Charged'
+    CHARGED = 'Charged'
 
     STARTED_DISCHARGING = 'Started Discharging'
     DISCHARGED = 'Discharged'
