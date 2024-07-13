@@ -365,7 +365,7 @@ STR~0783121006	capa[sum   920 Ah, mean 92.02, stdev 1590.49984 mAh (1.73 %)]	IR[
 	BL~0339350970	81P	capa[sum 91758 mAh, mean 1132.81 stdev 338.36 (29.9 %)]	IR[parallel 0.79 mΩ, mean 66.85, stdev 14.52 mΩ (21.7 %)]
 
 
-➜  greatriver git:(master) ✗ pack.py --match '.state.self_discharge.assessment == "PASS" and .state.usable_capacity != null and .state.internal_resistance != null and (.props.tags.workflow_failure == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_head == true | not) and .path == "/STOCK/RACK~0768983590/" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and .state.internal_resistance.v < 110' -S 10 -P 80 -a
+➜  greatriver git:(master) ✗ pack.py --match '.state.self_discharge.assessment == "PASS" and .state.usable_capacity != null and .state.internal_resistance != null and (.props.tags.workflow_failure == true | not) and (.props.tags.precharge_fail == true | not) and (.props.tags.excessive_heat == true | not) and .path == "/STOCK/RACK~0768983590/" and ((.props.brand == "SAMSUNG" and .props.tags.likely_fake == true) or .props.tags.noname == true) and .state.internal_resistance.v < 110' -S 10 -P 80 -a
 
 Initial layout:
 2021-11-12 21:38.59 [info     ] string layout                  P=[80, 80, 80, 80, 80, 80, 80, 80, 80, 80] S=10 block_capacity_mean=102.14 Ah block_ir_mean=0.68 mΩ cells=800 energy_capacity=3.7 kWh interblock_capacity_stdev=0.48 % interblock_ir_stdev=3.07 % intrablock_ir_stdev_max=28.19 %
@@ -385,8 +385,74 @@ STR~2689936470	10S	capa[sum   988 Ah, mean 98.81, stdev 1413.16686 mAh (1.43 %)]
 	BL~9378155622	80P	capa[sum 97642 mAh, mean 1220.52 stdev 355.08 (29.1 %)]	IR[parallel 0.72 mΩ, mean 62.83, stdev 14.85 mΩ (23.6 %)]
 2021-11-12 21:58.57 [info     ] string layout                  P=[80, 80, 80, 80, 80, 80, 80, 80, 80, 80] S=10 block_capacity_mean=98.81 Ah block_ir_mean=0.70 mΩ cells=800 energy_capacity=3.6 kWh interblock_capacity_stdev=1.43 % interblock_ir_stdev=2.87 % intrablock_ir_stdev_max=23.65 %
 
+======================================
 
-## A pack for a UPS (self-discharge is not critical)
+10S180P string
+
+➜  ~ pack.py assemble --path /PREPROD/ --match '.state.self_discharge.assessment == "PASS" and .state.internal_resistance != null and .state.internal_resistance.v < 90' -a -S 10 -P 180
+2024-05-14 11:18:27 [info     ] loading plugins                namespace=<module 'secondlife.plugins' from '/home/enki/repos/github.com/enkiusz/greatriver/lib/python/secondlife/plugins/__init__.py'>
+2024-05-14 11:18:28 [info     ] searching for cells
+2024-05-14 11:18:29 [info     ] cached all logs                count=4045
+2024-05-14 11:18:29 [info     ] cached all extras              count=111
+2024-05-14 11:18:30 [info     ] cached all container IDs       count=3912
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=JUNK
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=STOCK
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=PROD
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=9G4373J7+9R_Zyzna13
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=ACQUIRED
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=LOST
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=PREPROD
+2024-05-14 11:18:30 [warning  ] cannot determine bucket        id=TESTBED
+2024-05-14 11:18:30 [info     ] progress                       cells_found_total=1000
+2024-05-14 11:18:31 [info     ] progress                       cells_found_total=2000
+2024-05-14 11:18:32 [info     ] progress                       cells_found_total=3000
+2024-05-14 11:18:32 [warning  ] cannot determine bucket        id=UNPACKED
+2024-05-14 11:18:32 [info     ] progress                       cells_found_total=4000
+2024-05-14 11:18:32 [info     ] cell pool                      count=2847
+2024-05-14 11:18:32 [info     ] selecting cells                P=180 S=10 pool_size=2847
+2024-05-14 11:18:35 [info     ] progress                       iterations=3
+2024-05-14 11:18:38 [info     ] progress                       iterations=7
+2024-05-14 11:18:39 [info     ] improved string found          iterations=9
+2024-05-14 11:18:39 [info     ] string layout                  P=[180, 180, 180, 180, 180, 180, 180, 180, 180, 180] S=10 block_capacity_mean=343.59 Ah block_ir_mean=0.23 mΩ cells=1800 energy_capacity=12.4 kWh interblock_capacity_stdev=0.17 % interblock_ir_stdev=3.72 % intrablock_ir_stdev_max=37.89 %
+
+final string configuration:
+
+2024-05-14 11:32:31 [info     ] optimization finished
+STR~0061623211  10S     capa[sum  3405 Ah, mean 340.48, stdev 3727.93705 mAh (1.09 %)]  IR[max 0.24 mΩ, mean 0.24, stdev 0.00493 (2.09 %)]
+        BL~8832075584   180P    capa[sum 344045 mAh, mean 1911.36 stdev 378.60 (19.8 %)]        IR[parallel 0.23 mΩ, mean 48.90, stdev 17.23 mΩ (35.2 %)]
+        BL~0488338132   180P    capa[sum 337309 mAh, mean 1873.94 stdev 409.95 (21.9 %)]        IR[parallel 0.24 mΩ, mean 50.54, stdev 17.94 mΩ (35.5 %)]
+        BL~0527997270   180P    capa[sum 341735 mAh, mean 1898.53 stdev 378.14 (19.9 %)]        IR[parallel 0.24 mΩ, mean 49.89, stdev 17.68 mΩ (35.4 %)]
+        BL~5508176447   180P    capa[sum 339844 mAh, mean 1888.02 stdev 431.32 (22.8 %)]        IR[parallel 0.24 mΩ, mean 50.52, stdev 17.92 mΩ (35.5 %)]
+        BL~7498525845   180P    capa[sum 340867 mAh, mean 1893.71 stdev 398.38 (21.0 %)]        IR[parallel 0.24 mΩ, mean 50.57, stdev 17.95 mΩ (35.5 %)]
+        BL~3490386883   180P    capa[sum 332450 mAh, mean 1846.95 stdev 408.84 (22.1 %)]        IR[parallel 0.23 mΩ, mean 50.67, stdev 17.87 mΩ (35.3 %)]
+        BL~5947720009   180P    capa[sum 345244 mAh, mean 1918.02 stdev 376.91 (19.7 %)]        IR[parallel 0.24 mΩ, mean 51.10, stdev 17.22 mΩ (33.7 %)]
+        BL~7836852014   180P    capa[sum 343088 mAh, mean 1906.04 stdev 369.61 (19.4 %)]        IR[parallel 0.23 mΩ, mean 48.03, stdev 17.03 mΩ (35.5 %)]
+        BL~3341212477   180P    capa[sum 338400 mAh, mean 1880.00 stdev 399.69 (21.3 %)]        IR[parallel 0.24 mΩ, mean 50.07, stdev 17.56 mΩ (35.1 %)]
+        BL~1915135987   180P    capa[sum 341852 mAh, mean 1899.18 stdev 371.33 (19.6 %)]        IR[parallel 0.23 mΩ, mean 48.82, stdev 17.08 mΩ (35.0 %)]
+2024-05-14 11:32:31 [info     ] string layout                  P=[180, 180, 180, 180, 180, 180, 180, 180, 180, 180] S=10 block_capacity_mean=340.48 Ah block_ir_mean=0.24 mΩ cells=1800 energy_capacity=12.3 kWh interblock_capacity_stdev=1.09 % interblock_ir_stdev=2.09 % intrablock_ir_stdev_max=35.50 %
+2024-05-14 11:32:31 [info     ] assembling string              path=/PREPROD/
+
+Sorting sells:
+
+greatriver/bin/sort.py \
+--bucket-path 0 /PREPROD/STR~0061623211/BL~8832075584/ \
+--bucket-path 1 /PREPROD/STR~0061623211/BL~0488338132/ \
+--bucket-path 2 /PREPROD/STR~0061623211/BL~0527997270/ \
+--bucket-path 3 /PREPROD/STR~0061623211/BL~5508176447/ \
+--bucket-path 4 /PREPROD/STR~0061623211/BL~7498525845/ \
+--bucket-path 5 /PREPROD/STR~0061623211/BL~3490386883/ \
+--bucket-path 6 /PREPROD/STR~0061623211/BL~5947720009/ \
+--bucket-path 7 /PREPROD/STR~0061623211/BL~7836852014/ \
+--bucket-path 8 /PREPROD/STR~0061623211/BL~3341212477/ \
+--bucket-path 9 /PREPROD/STR~0061623211/BL~1915135987/ -
+
+Command used to replace missing cells:
+
+pack.py replace --match '.path == "/STOCK/RACK~0768983590/" and .state.internal_resistance.v < 90 and .state.self_discharge.assessment == "PASS"' -
+
+
+As there were many cells lost the decision has been made to reduce the size to 10S140P. Didnt bother to move the missing cells to /LOST/ as there were too many of them
+(approx 400).
 
 
 ## List 
@@ -394,6 +460,8 @@ STR~2689936470	10S	capa[sum   988 Ah, mean 98.81, stdev 1413.16686 mAh (1.43 %)]
 ================================
 
 Packing list for a string
+
+First 10S80P string
 
 ➜  docs git:(master) ✗ info.py -a --match '.path | startswith("/PREPROD/STR~6404665298/")' -R infoset \
 	--infoset-query '.path + .id' --infoset-query '.state.bucket' \
@@ -427,6 +495,7 @@ Packing list for a string
 | BL~9945209595 |              /PREPROD/STR~6404665298/BL~9945209595 |           99P |
 |  C~0012168377 | /PREPROD/STR~6404665298/BL~0383457779/C~0012168377 |           00N |
 
+UPS 4S24P
 
 ➜  docs git:(master) ✗ info.py -a --match '.props.formfactor == "18650" and (.path | startswith("/PREPROD/STR~7436719193/"))' -R infoset \
         --infoset-query '.path + .id' --infoset-query '.state.bucket' \
@@ -511,4 +580,108 @@ python3 bin/sort.py \
 --bucket-path 4 /PREPROD/STR~7436719193/BL~4005524831/ \
 --bucket-path 9 /PREPROD/STR~7436719193/BL~8894048519/ \
 --loglevel DEBUG -
+
+
+# Typical workflows
+
+Workflow overview:
+
+
+
+
+                            JUNK ◄──┐
+                             ▲      │               TESTBED
+                             │      │                ▲    ▲
+                             │      │                │    │
+                             │      │                │    │
+                             │      │                │    │
+                             │ ┌────┼────────────────┘    │
+                             │ │    │                     │
+                             │ │    └──────────────────┐  │
+                             │ │                       │  │
+                             │ │                       │  │
+ ACQUIRED   ────────────►   UNPACKED ───────────────► STOCK ──────────► PREPROD
+    ▲                          ▲                                         │
+    │                          │                                         │
+    │                          │                                         │
+    │                          │                                         │
+    │                          │                                         │
+    │                          │                                         │
+    │                          │                                         ▼
+    │                          │                                       PROD
+    │                          │
+Complete packs           Purchased unpacked
+                         (batches)
+PACK~nnnnn
+                         BATCH~nnnnnnn
+
+## Acquiring a new pack for disassembly (unpacking)
+
+First generate a new identifier for the pack
+
+➜  ~ labels.py -g 1 --prefix PACK --printer-pretend
+deprecation warning: brother_ql.devicedependent is deprecated and will be removed in a future release
+2023-08-05 15:36.13 [debug    ] config                         args=Namespace(g=1, copies=1, prefix='PACK', digits=10, printer_model='QL-500', printer_id=None, printer_backend='linux_kernel', printer_label='17x54', printer_pretend=True, identifiers=['-'])
+2023-08-05 15:36.13 [info     ] saving bitmap                  file=labels_0.png
+PACK~8762131947
+
+Export the pack id into an environment variable to ease workflow:
+
+➜  ~ export PACK_ID='PACK~8762131947'
+
+Next, create the pack with any relevant properties that you can find on the pack itself:
+- brand and model
+- serial number
+- datecode
+- voltage
+- capacity
+
+➜  ~ log.py --autocreate --path /ACQUIRED -p serial '2JCGJ18IEB2582' -b Mi -m NE1003-H -p layout 10S3P -p voltage.nom 36 -p capacity.nom 7800 $PACK_ID
+
+Photos can be also added for reference if needed.
+
+Next, disassemble (unpack) the battery pack and throw away the corroded or otherwise unsuable cells. Log the number of junked cells as a property of the pack:
+
+➜  ~ log.py -p junk_cells 1 $PACK_ID
+
+Generate and print labels for all cells which are ok for further processing:
+
+➜  ~ labels.py -g 30
+deprecation warning: brother_ql.devicedependent is deprecated and will be removed in a future release
+2023-08-05 17:37.54 [debug    ] config                         args=Namespace(g=30, copies=1, prefix='C', digits=10, printer_model='QL-500', printer_id=None, printer_backend='linux_kernel', printer_label='17x54', printer_pretend=False, identifiers=['-'])
+2023-08-05 17:37.54 [info     ] autoselected printer           printer=file:///dev/usb/lp0
+[...]
+'printing completed' status not received.
+'waiting to receive' status not received.
+Printing potentially not successful?
+C~0995766318
+C~0596796888
+[...]
+➜  ~ 
+
+Perform an initial check of the voltage and internal resistance of the cells and add them as child cells of your pack. Enter as much common data as possible for the cells
+including formfactor and nominal capacity. The '%s' magic value can be used to input a different property value for each cell. This is useful for filling out serial
+numbers.
+
+➜  ~ log.py --autocreate -b EVE -m ICR18650/26V -c 2550 -p formfactor 18650 -p serial %s -M rc --path "/ACQUIRED/$PACK_ID/" -
+➜  ~ log.py --autocreate -b EVE -m ICR18650/26V -c 2550 -p formfactor 18650 -p serial '%s' -M rc --path "/ACQUIRED/$PACK_ID/" -
+2023-08-05 18:01.48 [info     ] loading plugins                namespace=<module 'secondlife.plugins' from '/home/enki/repos/github.com/enkiusz/greatriver/lib/python/secondlife/plugins/__init__.py'>
+C~6492223235
+2023-08-05 18:01.52 [info     ] fetching infoset               id=C~6492223235
+2023-08-05 18:01.52 [info     ] fetching infoset               id=ACQUIRED
+2023-08-05 18:01.52 [info     ] fetching infoset               id=PACK~8762131947
+2023-08-05 18:01.52 [info     ] cell found                     id=C~6492223235
+2023-08-05 18:01.52 [info     ] progress                       cells_found_total=1
+[C~6492223235] .props.serial = 5HG421k379923
+2023-08-05 18:01.56 [info     ] measurement start              codeword=rc id=C~6492223235
+2023-08-05 18:01.56 [info     ] measurement results            results={'IR': {'range': 'AUTO', 'v': 19.0261, 'u': 'mOhm'}, 'OCV': {'range': 'AUTO', 'u': 'V', 'v': 1.1732}}
+2023-08-05 18:01.56 [info     ] store measurement results      codeword=rc id=C~6492223235 results={'type': 'measurement', 'event': 'finished', 'ts': 1691251316.7318642, 'equipment': {'model': 'RC3563'}, 'results': {'IR': {'range': 'AUTO', 'v': 19.0261, 'u': 'mOhm'}, 'OCV': {'range': 'AUTO', 'u': 'V', 'v': 1.1732}}}
+[...]
+2023-08-05 18:10.32 [info     ] measurement start              codeword=rc id=C~5317527658
+2023-08-05 18:10.32 [info     ] measurement results            results={'IR': {'range': 'AUTO', 'v': 20.1469, 'u': 'mOhm'}, 'OCV': {'range': 'AUTO', 'u': 'V', 'v': 1.1714}}
+2023-08-05 18:10.32 [info     ] store measurement results      codeword=rc id=C~5317527658 results={'type': 'measurement', 'event': 'finished', 'ts': 1691251832.5796463, 'equipment': {'model': 'RC3563'}, 'results': {'IR': {'range': 'AUTO', 'v': 20.1469, 'u': 'mOhm'}, 'OCV': {'range': 'AUTO', 'u': 'V', 'v': 1.1714}}}
+2023-08-05 18:10.39 [info     ] progress                       cells_found_total=29
+➜  ~ 
+
+
 

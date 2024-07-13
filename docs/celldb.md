@@ -23,6 +23,35 @@ The information available for each cell (be it a 18650 cell, a bigger "block" of
 
 ### Cell containment
 
+Cell locations
+
+
+                                JUNK ◄──┐              TESTBED
+                                 ▲      │
+                                 │      │                ▲    ▲
+                                 │      │                │    │
+                                 │      │                │    │
+                                 │      │                │    │
+                                 │ ┌────┼────────────────┘    │
+                                 │ │    │                     │
+                                 │ │    └──────────────────┐  │
+                                 │ │                       │  │
+                                 │ │                       │  │  pack.py
+     ACQUIRED   ────────────►   DEPACKED ───────────────► STOCK ──────────► PREPROD
+        ▲                           ▲                                         │
+        │                           │                                         │
+        │                           │                                         │
+        │                           │                                         │
+        │                           │                                         │
+        │                           │                                         │
+        │                           │                                         ▼
+        │                           │                                       PROD
+        │                           │
+    Complete packs           Purchased depacked
+                             (batches)
+    PACK~nnnnn
+                             BATCH~nnnnnnn
+
 Example hierarchy (physical placement)
 
 / < root >
@@ -42,7 +71,7 @@ Example hierarchy (pool & functional)
 
 After initial sorting:
 /POOL~734897389/precharge_pool << cells with voltage too low to charge normally, need to precharge >>
-/POOL~734897389/junk << corroded, punctured or otherwise damaged beyond refurbishing >>
+/POOL~734897389/JUNK << corroded, punctured or otherwise damaged beyond refurbishing >>
 
 After full charge
 /POOL~734897389/self_discharge_wait << cells having been charged and waiting for self-discharge to present itself >>
@@ -76,14 +105,14 @@ These values can sometimes be subdivided further, for example discharge current 
 
 The above list is not exhaustive nor authoritative but indicates the typical pieces of data specified for energy storage systems. It can be extended when required.
 
-### The  (aka log)
+### The log
 
 The log aims to record the conditions found during cell refurbishment processing and service life in order to judge the cell's health and performance. This includes measurements commonly taken for refurbished cells, such as:
 
 - internal resistance and open-circuit voltage measurements
-- charge-discharge-charge cycle used to measure useable capacity
-- temperature measurement during charge and/or discharge to check maximum temperature
-- cell discharge curve logging
+- charge-discharge-charge cycle capacity
+- temperature measurement during charge and/or discharge
+- cell discharge curve
 
 and may also include for example maximum current and temperature found in a cell during service life. In a more extreme example, a BMS system can constantly measure and log the cell's voltage and current in order to provide a precise estimate of the energy level in the cell.
 
